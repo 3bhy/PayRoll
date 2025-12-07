@@ -1,0 +1,85 @@
+package com.project.demo.controller;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.project.demo.entity.Login;
+import com.project.demo.model.LoginModel;
+import com.project.demo.service.LoginService;
+
+@RestController
+@RequestMapping("/api")
+public class LoginController {
+
+	@Autowired
+	private LoginService loginService;
+
+	@PostMapping("/processLogin")
+	public ResponseEntity<LoginModel> processLogin(@RequestParam Integer employeeId) {
+		Login login = loginService.processLogin(employeeId);
+		LoginModel loginModel = loginService.convertToModel(login);
+		return ResponseEntity.status(HttpStatus.CREATED).body(loginModel);
+	}
+
+	// Lock login
+	@PutMapping("/lock/{employeeId}")
+	public ResponseEntity<Void> lockLogin(@PathVariable Integer employeeId) {
+		loginService.lockLogin(employeeId);
+		return ResponseEntity.ok().build();
+	}
+
+	// CREATE
+	@PostMapping("/addLogin")
+	public ResponseEntity<LoginModel> createLogin(@RequestBody LoginModel loginModel) {
+		Login login = loginService.createLoginIfWasActiveLogin(loginModel);
+		LoginModel createdModel = loginService.convertToModel(login);
+		return ResponseEntity.status(HttpStatus.CREATED).body(createdModel);
+	}
+
+	
+
+	// GET BY ID
+	@GetMapping("/getLogins/{id}")
+	public ResponseEntity<LoginModel> getLoginById(@PathVariable Integer id) {
+		Login login = loginService.getLoginById(id);
+		LoginModel loginModel = loginService.convertToModel(login);
+		return ResponseEntity.ok(loginModel);
+	}
+
+	// UPDATE
+	@PutMapping("/updateLogins/{id}")
+	public ResponseEntity<LoginModel> updateLogin(@PathVariable Integer id, @RequestBody LoginModel loginModel) {
+		Login login = loginService.updateLogin(id, loginModel);
+		LoginModel updatedModel = loginService.convertToModel(login);
+		return ResponseEntity.ok(updatedModel);
+	}
+
+	// DELETE
+	@DeleteMapping("/deleteLogins/{id}")
+	public ResponseEntity<Void> deleteLogin(@PathVariable Integer id) {
+		loginService.deleteLogin(id);
+		return ResponseEntity.noContent().build();
+	}
+
+	// Filter by
+	@GetMapping("/searchLogins")
+	public ResponseEntity<List<LoginModel>> getLoginsByFilters(@RequestParam(required = false) Integer employeeId,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startLogin,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endLogin,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startLogout,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endLogout,
+			@RequestParam(required = false) Boolean logoutStatus, @RequestParam(required = false) Boolean locked) {
+
+		List<Login> logins = loginService.getLoginsByFilters(employeeId, startLogin, endLogin, startLogout, endLogout,
+				logoutStatus, locked);
+		List<LoginModel> loginModels = logins.stream().map(loginService::convertToModel).collect(Collectors.toList());
+		return ResponseEntity.ok(loginModels);
+	}
+}

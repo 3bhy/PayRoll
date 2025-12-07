@@ -1,0 +1,407 @@
+package com.project.demo.service;
+
+import java.time.LocalTime;
+import java.sql.Time;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.project.demo.entity.Employee;
+import com.project.demo.entity.EmployeeSalary;
+import com.project.demo.entity.ShiftTime;
+import com.project.demo.repo.EmployeeRepo;
+import com.project.demo.repo.EmployeeSalaryRepo;
+import com.project.demo.repo.SalesRepo;
+import com.project.demo.repo.ShiftTimeRepo;
+
+import jakarta.persistence.EntityNotFoundException;
+
+@Service
+@Transactional
+public class EmployeeSalaryService {
+
+	@Autowired
+	private EmployeeSalaryRepo employeeSalaryRepo;
+
+	@Autowired
+	private EmployeeRepo employeeRepo;
+
+	@Autowired
+	private SalesRepo salesRepo;
+
+	@Autowired
+	private ShiftTimeRepo shiftTimeRepo;
+
+	// Calculate Employee Salary
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public EmployeeSalary calculateEmployeeSalary(Integer employeeId, Integer year, Integer month) {
+		Employee employee = employeeRepo.findById(employeeId)
+				.orElseThrow(() -> new EntityNotFoundException("Employee not found with id: " + employeeId));
+		
+		// main salary - المرتب الأساسي من غير أي حساب
+		Float mainSalary = employee.getSalary() != null ? employee.getSalary() : 0.0f;
+		
+		// calculated salary - المرتب بعد الحساب حسب Day or Hour
+		Float calculatedSalary = calculateBaseSalary(employee, year, month);
+		
+		// calculated incentive - من النظام
+		Float calculatedIncentive = calculateIncentive(employee, year, month);
+
+		return createOrUpdateSalary(employee, year, month, mainSalary, calculatedSalary, calculatedIncentive);
+	}
+
+	public void updateSalaryOnAttendanceChange(Integer employeeId, Date attendanceDate) {
+	    try {
+	        // تحويل java.util.Date إلى LocalDate بأمان
+	        java.time.LocalDate localDate;
+	        if (attendanceDate instanceof java.sql.Date) {
+	            // استخدام toString() لتحويل java.sql.Date إلى LocalDate
+	            localDate = java.time.LocalDate.parse(attendanceDate.toString());
+	        } else {
+	            // تحويل java.util.Date إلى Instant ثم إلى LocalDate
+	            localDate = attendanceDate.toInstant()
+	                    .atZone(java.time.ZoneId.systemDefault())
+	                    .toLocalDate();
+	        }
+	        
+	        Integer year = localDate.getYear();
+	        Integer month = localDate.getMonthValue();
+
+	        calculateEmployeeSalary(employeeId, year, month);
+	    } catch (Exception e) {
+	        System.err.println("Error updating salary on attendance change: " + e.getMessage());
+	        e.printStackTrace();
+	    }
+	}
+	// main salary - المرتب الأساسي الثابت
+	private Float getMainSalary(Employee employee) {
+		return employee.getSalary() != null ? employee.getSalary() : 0.0f;
+	}
+
+	// calculated salary - المرتب بعد الحساب حسب Day or Hour
+	private Float calculateBaseSalary(Employee employee, Integer year, Integer month) {
+	    String salaryCycle = employee.getSalaryCycle();
+	    Float baseSalaryRate = employee.getSalary() != null ? employee.getSalary() : 0.0f;
+
+	    // جلب عدد الأيام الفريدة (الغير متكررة) التي يعمل بها الموظف
+	    Integer uniqueWorkingDays = calculateUniqueWorkingDays(employee.getEmployeeId());
+
+	    if ("DAY".equals(salaryCycle)) {
+	        Integer workingDaysPerMonth = uniqueWorkingDays * 4; // 4 أسابيع في الشهر
+	        return baseSalaryRate * workingDaysPerMonth;
+
+	    } else if ("HOUR".equals(salaryCycle)) {
+	        // جلب متوسط ساعات العمل اليومية
+	        Float averageDailyHours = calculateAverageDailyHours(employee.getEmployeeId());
+	        
+	        if (averageDailyHours > 0) {
+	            Float totalHours = averageDailyHours * uniqueWorkingDays * 4; // 4 أسابيع
+	            return baseSalaryRate * totalHours;
+	        } else {
+	            // إذا مفيش بيانات، استخدم القيم الافتراضية
+	            return baseSalaryRate * (8 * uniqueWorkingDays * 4);
+	        }
+	    } else {
+	        return baseSalaryRate;
+	    }
+	}
+
+	// دالة لحساب عدد الأيام الفريدة
+	private Integer calculateUniqueWorkingDays(Integer employeeId) {
+	    try {
+	        List<Integer> distinctDays = shiftTimeRepo.findDistinctDayIndexByEmployeeId(employeeId);
+	        return distinctDays != null ? distinctDays.size() : 5; // افتراضي 5 أيام إذا مفيش بيانات
+	    } catch (Exception e) {
+	        System.out.println("Error calculating unique working days: " + e.getMessage());
+	        return 5; // قيمة افتراضية
+	    }
+	}
+
+	// دالة لحساب متوسط الساعات اليومية
+	private Float calculateAverageDailyHours(Integer employeeId) {
+	    try {
+	        List<ShiftTime> shiftTimes = shiftTimeRepo.findByEmployeeIdNative(employeeId);
+	        if (shiftTimes == null || shiftTimes.isEmpty()) {
+	            return 8.0f; // 8 ساعات افتراضية
+	        }
+
+	        float totalHours = 0;
+	        int count = 0;
+
+	        for (ShiftTime shiftTime : shiftTimes) {
+	            if (shiftTime.getTotalTime() != null) {
+	                Time totalTime = shiftTime.getTotalTime();
+	                float hours = totalTime.toLocalTime().getHour() + (totalTime.toLocalTime().getMinute() / 60.0f);
+	                totalHours += hours;
+	                count++;
+	            }
+	        }
+
+	        return count > 0 ? totalHours / count : 8.0f;
+	    } catch (Exception e) {
+	        System.out.println("Error calculating average daily hours: " + e.getMessage());
+	        return 8.0f;
+	    }
+	}
+
+	private Float calculateIncentive(Employee employee, Integer year, Integer month) {
+		Float incentivePercent = employee.getSalesIncentivePercent() != null ? employee.getSalesIncentivePercent()
+				: 0.0f;
+		Boolean incentiveOnAllSales = employee.getIncentiveOnAllSales();
+		Float totalSales = 0.0f;
+
+		if (incentivePercent == 0.0f) {
+			return 0.0f;
+		}
+
+		if (Boolean.TRUE.equals(incentiveOnAllSales)) {
+		    Object[] shiftTimes = getShiftTimesFromDatabase(employee.getEmployeeId());
+		    LocalTime shiftStart = (LocalTime) shiftTimes[0];
+		    LocalTime shiftEnd = (LocalTime) shiftTimes[1];
+
+		    if (shiftStart != null && shiftEnd != null) {
+		        totalSales = salesRepo.calculateAllSalesDuringShiftHours(year, month, shiftStart.toString(),
+		                shiftEnd.toString());
+		        System.out.println("Mode: ALL TEAM SALES during shift - Total Sales: " + totalSales);
+		        
+		        if (totalSales == null || totalSales == 0.0f) {
+		            System.out.println("No sales during shift hours - No incentive");
+		            return 0.0f;
+		        }
+		    } else {
+		        totalSales = 0f;
+		        System.out.println("Mode: ALL TEAM SALES (no shift) - Total Sales: " + totalSales);
+		        return 0.0f;  
+		    }
+		} else {
+		    totalSales = salesRepo.calculateEmployeeSalesByMonth(employee.getEmployeeId(), year, month);
+		}
+
+		if (totalSales == null || totalSales == 0.0f) {
+		    System.out.println("No sales found - No incentive");
+		    return 0.0f;
+		}
+
+		Float calculatedIncentive = totalSales * (incentivePercent / 100);
+		System.out.println("Calculated Incentive: " + calculatedIncentive);
+		return calculatedIncentive;
+	}
+
+	// get shift time
+	private Object[] getShiftTimesFromDatabase(Integer employeeId) {
+		try {
+			Optional<ShiftTime> shiftTime = shiftTimeRepo.findShiftTimeByEmployeeIdNative(employeeId);
+			if (shiftTime.isPresent()) {
+				return new Object[] { shiftTime.get().getFromTime(), shiftTime.get().getToTime() };
+			}
+
+			shiftTime = shiftTimeRepo.findShiftTimeByEmployeeIdDirect(employeeId);
+			if (shiftTime.isPresent()) {
+				return new Object[] { shiftTime.get().getFromTime(), shiftTime.get().getToTime() };
+			}
+
+		} catch (Exception e) {
+			System.out.println("Error getting shift times: " + e.getMessage());
+		}
+
+		return new Object[] { null, null };
+	}
+
+	// create salary - تم التعديل هنا لإضافة calculatedSalary و calculatedIncentive
+	private EmployeeSalary createOrUpdateSalary(Employee employee, Integer year, Integer month, 
+	                                           Float mainSalary, Float calculatedSalary, Float calculatedIncentive) {
+		Optional<EmployeeSalary> existingSalary = employeeSalaryRepo
+				.findByEmployeeIdAndYearAndMonth(employee.getEmployeeId(), year, month);
+
+		EmployeeSalary salary;
+		if (existingSalary.isPresent()) {
+			salary = existingSalary.get();
+			salary.setMainSalary(mainSalary);
+			salary.setCalculatedSalary(calculatedSalary); // المرتب بعد الحساب
+			salary.setCalculatedIncentive(calculatedIncentive); // الحوافز المحسوبة من النظام
+			salary.setCalculatedDiscount(0f); // دائماً 0
+		} else {
+			salary = new EmployeeSalary();
+			salary.setEmployeeId(employee.getEmployeeId());
+			salary.setYear(year);
+			salary.setMonth(month);
+			salary.setSalaryDate(new Date());
+			salary.setMainSalary(mainSalary);
+			salary.setCalculatedSalary(calculatedSalary); // المرتب بعد الحساب
+			salary.setCalculatedIncentive(calculatedIncentive); // الحوافز المحسوبة من النظام
+			salary.setCalculatedDiscount(0f); // دائماً 0
+			salary.setDiscount(0f); // من المستخدم
+			salary.setReward(0f); // من المستخدم
+			salary.setIncentive(0f); // من المستخدم
+			salary.setSalaryLocked(false);
+		}
+
+		calculateFinalSalary(salary);
+		return employeeSalaryRepo.save(salary);
+	}
+
+	// final salary - يأخذه من المستخدم مع إضافة الحوافز والخصومات والمكافآت
+	public EmployeeSalary addFinalSalary(Integer employeeId, Integer year, Integer month, Float finalSalary) {
+		EmployeeSalary employeeSalary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)
+				.orElseThrow(() -> new EntityNotFoundException("Salary record not found for employee: " + employeeId
+						+ ", year: " + year + ", month: " + month));
+
+		employeeSalary.setFinalSalary(finalSalary);
+		calculateFinalSalary(employeeSalary);
+
+		return employeeSalaryRepo.save(employeeSalary);
+	}
+
+	// calculate Final Salary - تم التعديل حسب متطلباتك الجديدة
+	private void calculateFinalSalary(EmployeeSalary employeeSalary) {
+		Float calculatedSalary = employeeSalary.getCalculatedSalary() != null ? employeeSalary.getCalculatedSalary() : 0f;
+		Float calculatedIncentive = employeeSalary.getCalculatedIncentive() != null ? employeeSalary.getCalculatedIncentive() : 0f;
+		Float calculatedDiscount = employeeSalary.getCalculatedDiscount() != null ? employeeSalary.getCalculatedDiscount() : 0f;
+
+		// calculatedFinalSalary: calculatedSalary + calculatedIncentive - calculatedDiscount + reward
+		Float calculatedFinalSalary = calculatedSalary + calculatedIncentive - calculatedDiscount ;
+		employeeSalary.setCalculatedFinalSalary(calculatedFinalSalary);
+
+		// إذا كان هناك final salary محدد من المستخدم، احسب الفرق
+		Float finalSalary = employeeSalary.getFinalSalary();
+		if (finalSalary != null) {
+			Float incentive = employeeSalary.getIncentive() != null ? employeeSalary.getIncentive() : 0f;
+			Float discount = employeeSalary.getDiscount() != null ? employeeSalary.getDiscount() : 0f;
+			Float Reward = employeeSalary.getReward() != null ? employeeSalary.getReward() : 0f;
+			
+			// FinalSalary: from user + incentive - discount + reward
+			Float adjustedFinalSalary = finalSalary + incentive - discount + Reward;
+			employeeSalary.setFinalSalary(adjustedFinalSalary);
+			
+			
+		}
+
+		// إذا كان هناك مبلغ مدفوع، احسب الفرق بين final salary والمبلغ المدفوع
+		if (employeeSalary.getSalaryAmountPaid() != null && employeeSalary.getFinalSalary() != null) {
+			Float paymentDifference = employeeSalary.getFinalSalary() - employeeSalary.getSalaryAmountPaid();
+			employeeSalary.setSalaryDifference(paymentDifference);
+		}
+	}
+
+	// add discount from user
+	public EmployeeSalary addSalaryDiscount(Integer employeeId, Integer year, Integer month, Float amount, String reason) {
+	    EmployeeSalary employeeSalary = getOrCreateEmployeeSalary(employeeId, year, month);
+
+	    Float newDiscount = (employeeSalary.getDiscount() != null ? employeeSalary.getDiscount() : 0f) + amount;
+	    employeeSalary.setDiscount(newDiscount);
+	    employeeSalary.setDiscountReason(reason);
+
+	    calculateFinalSalary(employeeSalary);
+	    return employeeSalaryRepo.save(employeeSalary);
+	}
+
+	// add reward from user
+	public EmployeeSalary addSalaryReward(Integer employeeId, Integer year, Integer month, Float amount, String reason) {
+	    EmployeeSalary employeeSalary = getOrCreateEmployeeSalary(employeeId, year, month);
+
+	    Float newReward = (employeeSalary.getReward() != null ? employeeSalary.getReward() : 0f) + amount;
+	    employeeSalary.setReward(newReward);
+	    employeeSalary.setRewardReason(reason);
+
+	    calculateFinalSalary(employeeSalary);
+
+	    return employeeSalaryRepo.save(employeeSalary);
+	}
+
+	// add incentive from user
+	public EmployeeSalary addSalaryIncentive(Integer employeeId, Integer year, Integer month, Float amount, String reason) {
+	    EmployeeSalary employeeSalary = getOrCreateEmployeeSalary(employeeId, year, month);
+
+	    Float newIncentive = (employeeSalary.getIncentive() != null ? employeeSalary.getIncentive() : 0f) + amount;
+	    employeeSalary.setIncentive(newIncentive);
+	  
+
+	    calculateFinalSalary(employeeSalary);
+
+	    return employeeSalaryRepo.save(employeeSalary);
+	}
+
+	// get employee salary
+	private EmployeeSalary getOrCreateEmployeeSalary(Integer employeeId, Integer year, Integer month) {
+	    Optional<EmployeeSalary> existingSalary =
+	            employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month);
+
+	    if (existingSalary.isPresent()) {
+	        return existingSalary.get();
+	    }
+
+	    Employee employee = employeeRepo.findById(employeeId)
+	            .orElseThrow(() -> new RuntimeException("Employee not found with id: " + employeeId));
+
+	    Float mainSalary = getMainSalary(employee);
+	    Float calculatedSalary = calculateBaseSalary(employee, year, month);
+	    Float calculatedIncentive = calculateIncentive(employee, year, month);
+
+	    return createOrUpdateSalary(employee, year, month, mainSalary, calculatedSalary, calculatedIncentive);
+	}
+
+	// pay salary
+	public EmployeeSalary paySalaryDirect(Integer employeeId, Integer year, Integer month, Float amountPaid) {
+		EmployeeSalary salary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)
+				.orElseThrow(() -> new EntityNotFoundException("Salary record not found for employee: " + employeeId
+						+ ", year: " + year + ", month: " + month));
+
+		if (Boolean.TRUE.equals(salary.getSalaryLocked())) {
+			throw new RuntimeException("Salary is locked and cannot be modified");
+		}
+
+		Float currentAmountPaid = salary.getSalaryAmountPaid() != null ? salary.getSalaryAmountPaid() : 0.0f;
+		Float totalAmountPaid = currentAmountPaid + amountPaid;
+		salary.setSalaryAmountPaid(totalAmountPaid);
+
+		calculateFinalSalary(salary);
+
+		return employeeSalaryRepo.save(salary);
+	}
+
+	public Optional<EmployeeSalary> getEmployeeSalary(Integer employeeId, Integer year, Integer month) {
+		return employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month);
+	}
+
+	// update main salary
+	public EmployeeSalary updateBaseSalary(Integer employeeId, Integer year, Integer month, Float newBaseSalary) {
+		EmployeeSalary employeeSalary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)
+				.orElseGet(() -> {
+					EmployeeSalary newSalary = new EmployeeSalary();
+					newSalary.setEmployeeId(employeeId);
+					newSalary.setYear(year);
+					newSalary.setMonth(month);
+					newSalary.setSalaryDate(new Date());
+					return newSalary;
+				});
+
+		employeeSalary.setMainSalary(newBaseSalary);
+		calculateFinalSalary(employeeSalary);
+
+		return employeeSalaryRepo.save(employeeSalary);
+	}
+
+	// lock salary
+	public EmployeeSalary lockSalary(Integer employeeId, Integer year, Integer month) {
+		EmployeeSalary employeeSalary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)
+				.orElseThrow(() -> new RuntimeException("Salary not found"));
+
+		employeeSalary.setSalaryLocked(true);
+		return employeeSalaryRepo.save(employeeSalary);
+	}
+
+	public EmployeeSalary createEmployeeSalary(Employee employee) {
+		EmployeeSalary employeeSalary = new EmployeeSalary();
+		employeeSalary.setEmployeeId(employee.getEmployeeId());
+		employeeSalary.setMainSalary(employee.getSalary());
+		employeeSalary.setCalculatedSalary(employee.getSalary()); // نفس القيمة في البداية
+		employeeSalary.setCalculatedIncentive(0f);
+		employeeSalary.setCalculatedDiscount(0f);
+
+		return employeeSalaryRepo.save(employeeSalary);
+	}
+}

@@ -1,0 +1,50 @@
+package com.project.demo.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import com.project.demo.entity.EmployeeSalary;
+import com.project.demo.service.EmployeeSalaryService;
+
+@RestController
+@RequestMapping("/api")
+public class EmployeeSalaryController {
+
+	@Autowired
+	private EmployeeSalaryService employeeSalaryService;
+
+	@PostMapping("/discount")
+	public EmployeeSalary addDiscount(@RequestParam Integer employeeId, @RequestParam Integer year,
+			@RequestParam Integer month, @RequestParam Float amount, @RequestParam String reason) {
+		return employeeSalaryService.addSalaryDiscount(employeeId, year, month, amount, reason);
+	}
+
+	// إضافة مكافأة
+	@PostMapping("/reward")
+	public EmployeeSalary addReward(@RequestParam Integer employeeId, @RequestParam Integer year,
+			@RequestParam Integer month, @RequestParam Float amount, @RequestParam String reason) {
+		return employeeSalaryService.addSalaryReward(employeeId, year, month, amount, reason);
+	}
+
+	// إضافة حوافز من المستخدم
+	@PostMapping("/incentive")
+	public EmployeeSalary addIncentive(@RequestParam Integer employeeId, @RequestParam Integer year,
+			@RequestParam Integer month, @RequestParam Float amount, @RequestParam String reason) {
+		return employeeSalaryService.addSalaryIncentive(employeeId, year, month, amount, reason);
+	}
+
+	// دفع جزء من الراتب
+	@PostMapping("/pay")
+	public EmployeeSalary paySalary(@RequestParam Integer employeeId, @RequestParam Integer year,
+			@RequestParam Integer month, @RequestParam Float amount) {
+		return employeeSalaryService.paySalaryDirect(employeeId, year, month, amount);
+	}
+
+	// تعيين الراتب النهائي من المستخدم
+	@PostMapping("/final")
+	public EmployeeSalary updateFinalSalary(@RequestParam Integer employeeId, @RequestParam Integer year,
+			@RequestParam Integer month, @RequestParam Float finalSalary) {
+		return employeeSalaryService.addFinalSalary(employeeId, year, month, finalSalary);
+	}
+
+}

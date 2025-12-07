@@ -1,0 +1,195 @@
+package com.project.demo.service;
+
+import java.sql.Time;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
+
+import com.project.demo.entity.Employee;
+import com.project.demo.entity.Login;
+import com.project.demo.entity.ShiftTime;
+import com.project.demo.entity.ShiftTimeAttendance;
+import com.project.demo.model.ShiftTimeModel;
+import com.project.demo.repo.EmployeeRepo;
+import com.project.demo.repo.LoginRepo;
+import com.project.demo.repo.SalesRepo;
+import com.project.demo.repo.ShiftTimeRepo;
+import com.project.demo.repo.shiftTimeAttendanceRepo;
+
+@Service
+public class shiftTimeAttendanceService {
+
+	@Autowired
+	private shiftTimeAttendanceRepo shiftTimeAttendanceRepository;
+	@Autowired
+	private ShiftTimeRepo shiftRepository;
+
+	private LoginService loginService;
+
+	@Autowired
+	private EmployeeRepo employeeRepository;
+
+	private ShiftTimeModel shifTtime;
+
+	@Autowired
+	private SalesRepo salesRepository;
+	@Autowired
+	private LoginRepo loginRepo;
+
+	public shiftTimeAttendanceService(@Lazy LoginService loginService) {
+		this.loginService = loginService;
+	}
+
+	public void updateDateAttendance(Login login) {
+		ShiftTimeAttendance attendance = login.getShiftTimeAttendanceId();
+		Integer employeeId = login.getEmployeeId().getEmployeeId();
+
+		// If attendance doesn't exist, create a new one and save it
+		if (attendance == null) {
+			attendance = new ShiftTimeAttendance();
+			attendance.setEmployee(login.getEmployeeId());
+			attendance.setAttendanceDate(java.sql.Date.valueOf(LocalDate.now()));
+
+			attendance = shiftTimeAttendanceRepository.save(attendance);
+
+			login.setShiftTimeAttendanceId(attendance);
+			loginRepo.save(login);
+		}
+
+		// shift time
+		ShiftTime shiftTime = getShiftTimeForEmployee(employeeId, LocalDate.now());
+
+		// Calculate and set attendance data
+		calculateAndSetAttendanceData(login, attendance, employeeId, shiftTime);
+
+		shiftTimeAttendanceRepository.save(attendance);
+	}
+
+	private void calculateAndSetAttendanceData(Login login, ShiftTimeAttendance attendance, Integer employeeId,
+	        ShiftTime shiftTime) {
+	    LocalDate attendanceDate;
+
+	    if (attendance.getAttendanceDate() == null) {
+	        attendanceDate = LocalDate.now();
+	    } else {
+	        // طريقة آمنة للتحويل من Date إلى LocalDate
+	        Date date = attendance.getAttendanceDate();
+	        if (date instanceof java.sql.Date) {
+	            // إذا كان java.sql.Date
+	            attendanceDate = ((java.sql.Date) date).toLocalDate();
+	        } else {
+	            // إذا كان java.util.Date
+	            attendanceDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+	        }
+	    }
+	    
+	    
+		// Calculate time difference
+		if (shiftTime != null && shiftTime.getTotalTime() != null) {
+			long timeDifference = login.getActivityTime().getTime() - shiftTime.getTotalTime().getTime();
+
+			if (timeDifference < 0) {
+				Time lessTime = new Time(Math.abs(timeDifference));
+				attendance.setLessTime(lessTime);
+				attendance.setOverTime(null);
+			} else {
+				Time overTime = new Time(timeDifference);
+				attendance.setOverTime(overTime);
+				attendance.setLessTime(null);
+			}
+		} else {
+			attendance.setLessTime(null);
+			attendance.setOverTime(null);
+		}
+
+		// active time
+		Time ActiveTime = login.getActivityTime();
+		attendance.setTotalActiveTime(ActiveTime);
+
+		// Total incentive sales
+		Float totalIncentiveSales = calculateTotalIncentiveSales(employeeId, attendanceDate);
+		attendance.setTotalIncentiveSales(totalIncentiveSales);
+	}
+
+	// calculate total incentive sales
+	private Float calculateTotalIncentiveSales(Integer employeeId, LocalDate date) {
+		Employee employee = employeeRepository.findById(employeeId)
+				.orElseThrow(() -> new RuntimeException("Employee not found with id: " + employeeId));
+
+		Float incentivePercent = employee.getSalesIncentivePercent() != null ? employee.getSalesIncentivePercent()
+				: 0.0f;
+
+		if (employee.getIncentiveOnAllSales()) {
+			// Incentive On All Sales=1
+			ShiftTime shiftTime = getShiftTimeForEmployee(employeeId, date);
+			Float allSalesDuringShift = calculateAllSalesDuringShiftTime(date, shiftTime);
+			return allSalesDuringShift * (incentivePercent / 100);
+		} else {
+
+			Float allEmployeeSales = calculateAllEmployeeSalesForDate(employeeId, date);
+			return allEmployeeSales * (incentivePercent / 100);
+		}
+	}
+
+	// shift time for employee
+	public ShiftTime getShiftTimeForEmployee(Integer employeeId, LocalDate date) {
+		try {
+
+			Optional<ShiftTime> shiftToday = shiftRepository.findByEmployeeIdAndDateNative(employeeId, date);
+
+			if (shiftToday.isPresent()) {
+				return shiftToday.get();
+			}
+
+			List<ShiftTime> employeeShifts = shiftRepository.findByEmployeeIdNative(employeeId);
+
+			if (!employeeShifts.isEmpty()) {
+				return employeeShifts.get(0);
+			}
+
+			Optional<ShiftTime> defaultShift = shiftRepository.findAnyShiftTime();
+
+			if (defaultShift.isPresent()) {
+				return defaultShift.get();
+			}
+
+			return loginService.createDummyShiftTime();
+
+		} catch (Exception e) {
+			System.out.println("ERROR in getShiftTimeForEmployee: " + e.getMessage());
+			return loginService.createDummyShiftTime();
+		}
+	}
+
+	private Float calculateAllSalesDuringShiftTime(LocalDate date, ShiftTime shiftTime) {
+		if (shiftTime == null) {
+			return 0.0f;
+		}
+
+		LocalDateTime shiftStart = LocalDateTime.of(date, shiftTime.getFromTime().toLocalTime());
+		LocalDateTime shiftEnd = LocalDateTime.of(date, shiftTime.getToTime().toLocalTime());
+
+		return salesRepository.calculateAllSalesDuringShiftTime(shiftStart, shiftEnd);
+	}
+
+	private Float calculateAllEmployeeSalesForDate(Integer employeeId, LocalDate date) {
+		return salesRepository.calculateTotalSalesByEmployeeAndDate(employeeId, date);
+	}
+
+	public ShiftTimeAttendance getshittimeattendance(Integer shiftTimeAttendanceId) {
+		if (shiftTimeAttendanceId == null) {
+			return null;
+		}
+
+		Optional<ShiftTimeAttendance> attendance = shiftTimeAttendanceRepository.findById(shiftTimeAttendanceId);
+
+		return attendance.orElse(null);
+	}
+}

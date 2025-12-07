@@ -1,0 +1,374 @@
+package com.project.demo.service;
+
+import java.sql.Time;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import com.project.demo.entity.Company;
+import com.project.demo.entity.Employee;
+import com.project.demo.entity.Login;
+import com.project.demo.entity.Shift;
+import com.project.demo.entity.ShiftTime;
+import com.project.demo.entity.ShiftTimeAttendance;
+import com.project.demo.model.LoginModel;
+import com.project.demo.repo.EmployeeRepo;
+import com.project.demo.repo.LoginRepo;
+import com.project.demo.repo.ShiftTimeRepo;
+import com.project.demo.repo.shiftTimeAttendanceRepo;
+
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
+
+@Service
+@Transactional
+public class LoginService {
+
+	@Autowired
+	private LoginRepo loginRepository;
+
+	@Autowired
+	private EmployeeService employeeService;
+
+	@Autowired
+	private EmployeeRepo employeeRepository;
+	@Autowired
+	private shiftTimeAttendanceRepo shiftTimeAttendanceRepository;
+	@Autowired
+	private shiftTimeAttendanceService shiftTimeAttendanceService;
+	@Autowired
+	private ShiftTimeRepo shiftTimeRepo;
+	@Autowired
+	private EmployeeSalaryService EmployeeSalaryService;
+
+	// Login Process if there active login close it and open new
+	private Login processLogin(Integer employeeId, Integer shiftTimeAttendanceId) {
+		List<Login> activeLogins = loginRepository.findActiveLogins(employeeId);
+		if (!activeLogins.isEmpty()) {
+			lockLogin(employeeId, activeLogins);
+		}
+		return createNewLoginWithEmIdShId(employeeId, shiftTimeAttendanceId);
+	}
+
+	// CREATE
+	public Login createLoginIfWasActiveLogin(LoginModel loginModel) {
+
+		if (loginModel.getEmployeeId() == null) {
+			throw new RuntimeException("Employee ID cannot be null while creating a login.");
+		}
+
+		return processLogin(loginModel.getEmployeeId(), loginModel.getShiftTimeAttendanceId());
+	}
+
+	// Lock login function
+	public List<Login> lockLogin(Integer employeeId, List<Login> activeLogins) {
+		try {
+			if (activeLogins.isEmpty()) {
+				return activeLogins;
+			}
+
+			for (Login login : activeLogins) {
+				calculateAndSetActivityTime(login);
+
+				login.setLocked(true);
+				loginRepository.save(login);
+			}
+			return activeLogins;
+
+		} catch (Exception e) {
+			System.out.println("Error: " + e.getMessage());
+			throw new RuntimeException("Error while locking logins for employee " + employeeId, e);
+		}
+	}
+
+	// calculate active time
+	public Time calculateAndSetActivityTime(Login login) {
+		if (login.getLoginDateTime() != null && login.getLogoutDateTime() != null) {
+			Duration duration = Duration.between(login.getLoginDateTime(), login.getLogoutDateTime());
+			long seconds = duration.getSeconds();
+
+			Time activityTime = Time
+					.valueOf(String.format("%02d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60));
+			login.setActivityTime(activityTime);
+			return activityTime;
+		}
+		return Time.valueOf("00:00:00");
+	}
+
+	// Lock login by employeeId
+	public void lockLoginByEmployeeId(Integer employeeId) {
+
+		try {
+
+			List<Login> activeLogins = loginRepository.findActiveLogins(employeeId);
+
+			if (activeLogins.isEmpty()) {
+
+				return;
+			}
+
+			for (Login login : activeLogins) {
+				login.setLocked(true);
+				loginRepository.save(login);
+
+			}
+
+		} catch (Exception e) {
+			System.out.println("Error: " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
+
+	// Create new login record by employeeId and default values
+	private Login createNewLoginWithEmIdShId(Integer employeeId, Integer shiftTimeAttendanceId) {
+		Login login = new Login();
+
+		// Set employee
+		Employee employee = employeeService.getEmployeeById(employeeId);
+		login.setEmployeeId(employee);
+		ShiftTimeAttendance shiftTimeAttendance = shiftTimeAttendanceService
+				.getshittimeattendance(shiftTimeAttendanceId);
+		login.setShiftTimeAttendanceId(shiftTimeAttendance);
+
+		LocalDateTime now = LocalDateTime.now();
+		login.setLoginDateTime(now);
+		login.setLogoutDateTime(now.plusMinutes(15));
+		login.setLocked(false);
+		login.setLogoutStatus(false);
+		login.setActivityTime(Time.valueOf("00:15:00"));
+
+		try {
+			List<ShiftTime> shiftTimes = shiftTimeRepo.findByEmployeeIdNative(employeeId);
+
+			if (!shiftTimes.isEmpty()) {
+				ShiftTime shiftTime = shiftTimes.get(0);
+				login.setShiftTimeId(shiftTime);
+				System.out
+						.println("Found shift time ID: " + shiftTime.getShiftTimeId() + " for employee: " + employeeId);
+			} else {
+				System.out.println("No shift times found for employee: " + employeeId);
+			}
+		} catch (Exception e) {
+			System.err.println("Error fetching shift times for employee " + employeeId + ": " + e.getMessage());
+		}
+
+		Login savedLogin = loginRepository.save(login);
+		shiftTimeAttendanceService.updateDateAttendance(login);
+		return savedLogin;
+	}
+
+	// get login by id
+	public Optional<Login> getLoginById(Integer id) {
+		return loginRepository.findById(id);
+	}
+
+	// Delete login row
+
+	public void deleteLogin(Integer id) {
+		getLoginById(id).ifPresent(loginRepository::delete);
+	}
+
+	public LoginModel convertToModel(Login entity) {
+		return new LoginModel(entity.getLoginId(),
+				entity.getEmployeeId() != null ? entity.getEmployeeId().getEmployeeId() : null,
+				entity.getShiftTimeId() != null ? entity.getShiftTimeId().getShiftTimeId() : null,
+				entity.getShiftTimeAttendanceId() != null ? entity.getShiftTimeAttendanceId().getShiftTimeAttendanceId()
+						: null,
+				entity.getLoginDateTime(), entity.getLogoutDateTime(), entity.getLogoutStatus(),
+				entity.getActivityTime(), entity.getLocked());
+	}
+	// FILTER BY
+
+	public List<Login> getLoginsByFilters(Integer employeeId, LocalDateTime loginDateTime, LocalDateTime logoutDateTime,
+			Boolean logoutStatus, Boolean locked) {
+
+		LocalDateTime loginStart = null;
+		LocalDateTime loginEnd = null;
+		LocalDateTime logoutStart = null;
+		LocalDateTime logoutEnd = null;
+
+//  loginDateTime
+		if (loginDateTime != null) {
+			loginStart = loginDateTime.withNano(0);
+			loginEnd = null;
+		}
+
+//  logoutDateTime  
+		if (logoutDateTime != null) {
+			logoutStart = null;
+			logoutEnd = logoutDateTime.withNano(0);
+		}
+
+		if (loginDateTime != null && logoutDateTime != null) {
+			loginStart = loginDateTime.withNano(0);
+			loginEnd = logoutDateTime.withNano(0);
+			logoutStart = loginDateTime.withNano(0);
+			logoutEnd = logoutDateTime.withNano(0);
+		}
+
+		return loginRepository.findLoginsByFilters(employeeId, loginStart, loginEnd, logoutStart, logoutEnd,
+				logoutStatus, locked);
+	}
+
+	// Logout by employeeId
+	public Login processLogout(Integer employeeId, Integer shiftTimeAttendanceId) {
+		try {
+			List<Login> activeLogins = loginRepository.findActiveLogins(employeeId);
+
+			if (activeLogins.isEmpty()) {
+				return processLogin(employeeId, shiftTimeAttendanceId);
+			}
+
+			Login loginToLogout = activeLogins.get(0);
+			loginToLogout.setLogoutStatus(true);
+			loginToLogout.setLogoutDateTime(LocalDateTime.now());
+
+			lockLogin(employeeId, activeLogins);
+			
+			// حساب الراتب في transaction منفصلة
+			calculateSalaryInNewTransaction(employeeId);
+			
+			// تحديث الحضور في transaction منفصلة
+			updateAttendanceInNewTransaction(loginToLogout);
+			
+			return loginRepository.save(loginToLogout);
+		} catch (Exception e) {
+			System.err.println("Error in processLogout: " + e.getMessage());
+			e.printStackTrace();
+			throw new RuntimeException("Logout process failed", e);
+		}
+	}
+
+	// Logout employee by loginID - هذه الدالة هي سبب المشكلة
+	public Login logoutByLoginId(Integer loginId) {
+		try {
+			System.out.println("Starting logout for loginId: " + loginId);
+			
+			Login login = loginRepository.findActiveLoginById(loginId)
+					.orElseThrow(() -> new EntityNotFoundException("Active login not found with id: " + loginId));
+
+			System.out.println("Found login for employee: " + login.getEmployeeId().getEmployeeId());
+			
+			// استخدم processLogout بدلاً من استدعاء الدوال مباشرة
+			return processLogout(login.getEmployeeId().getEmployeeId(),
+					login.getShiftTimeAttendanceId().getShiftTimeAttendanceId());
+					
+		} catch (Exception e) {
+			System.err.println("ERROR in logoutByLoginId: " + e.getMessage());
+			e.printStackTrace();
+			throw new RuntimeException("Logout failed for loginId: " + loginId, e);
+		}
+	}
+
+	// حساب الراتب في transaction منفصلة
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	protected void calculateSalaryInNewTransaction(Integer employeeId) {
+		try {
+			YearMonth currentYearMonth = YearMonth.now();
+			int currentYear = currentYearMonth.getYear();
+			int currentMonth = currentYearMonth.getMonthValue();
+			System.out.println("Calculating salary for employee: " + employeeId + ", year: " + currentYear + ", month: " + currentMonth);
+			EmployeeSalaryService.calculateEmployeeSalary(employeeId, currentYear, currentMonth);
+			System.out.println("Salary calculation completed successfully");
+		} catch (Exception e) {
+			System.err.println("Salary calculation failed, but logout will continue: " + e.getMessage());
+			// لا ت rethrow ال exception هنا علشان ما تؤثرش على ال logout
+		}
+	}
+
+	// تحديث الحضور في transaction منفصلة
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	protected void updateAttendanceInNewTransaction(Login login) {
+		try {
+			System.out.println("Updating attendance for login: " + login.getLoginId());
+			shiftTimeAttendanceService.updateDateAttendance(login);
+			System.out.println("Attendance update completed successfully");
+		} catch (Exception e) {
+			System.err.println("Attendance update failed, but logout will continue: " + e.getMessage());
+			// لا ت rethrow ال exception هنا علشان ما تؤثرش على ال logout
+		}
+	}
+
+	// getOpenLogins
+	public List<Login> getOpenLogins() {
+		return loginRepository.findLockedLoginsWithOpenLogout();
+	}
+
+	// This is updates
+
+	// Select shift_time of the employee where now is between its (from hour - 1)
+	// and to hour and same day
+
+	public ShiftTime getCurrentShiftTimeForEmployee(Integer employeeId) {
+		Optional<ShiftTime> shiftTimeOpt = loginRepository.findCurrentShiftTimeForEmployee(employeeId);
+
+		return shiftTimeOpt.orElseGet(this::createDummyShiftTime);
+	}
+
+	// DummyShift
+	public ShiftTime createDummyShiftTime() {
+		Shift dummyShift = new Shift();
+		dummyShift.setShiftId(-1);
+
+		dummyShift.setShiftName("UNKNOWN");
+
+		Company dummyCompany = new Company();
+		dummyCompany.setCompanyId(-1);
+
+		ShiftTime dummyShiftTime = new ShiftTime();
+		dummyShiftTime.setShiftTimeId(-1);
+
+		Shift dummyShiftId = new Shift();
+		dummyShiftId.setShiftId(-1);
+
+		dummyShiftTime.setDayIndex(0);
+		dummyShiftTime.setFromTime(Time.valueOf("00:00:00"));
+		dummyShiftTime.setToTime(Time.valueOf("23:59:59"));
+		dummyShiftTime.setTotalTime(Time.valueOf("23:59:59"));
+
+		return dummyShiftTime;
+	}
+
+//get active login and now is between totime and fromtime
+	public Optional<Login> findActiveLoginWithinShift(Integer employeeId) {
+		return loginRepository.findActiveLoginWithinShift(employeeId);
+	}
+
+	// get shift_time_attendance
+	public ShiftTimeAttendance getTodayAttendance(Integer employeeId) {
+		Optional<ShiftTimeAttendance> attendance = loginRepository.findTodayAttendanceByEmployee(employeeId);
+
+		if (attendance.isPresent()) {
+			return attendance.get();
+		} else {
+			// New attendance
+			return CreateNewAttendance(employeeId);
+
+		}
+	}
+
+	private ShiftTimeAttendance CreateNewAttendance(Integer employeeId) {
+
+		Employee employee = employeeRepository.findById(employeeId).orElseThrow();
+
+		ShiftTimeAttendance newAttendance = new ShiftTimeAttendance();
+		newAttendance.setEmployee(employee);
+		newAttendance.setAttendanceDate(java.sql.Date.valueOf(LocalDate.now()));
+		newAttendance.setOverTime(Time.valueOf("00:00:00"));
+		newAttendance.setLessTime(Time.valueOf("00:00:00"));
+		newAttendance.setTotalActiveTime(Time.valueOf("00:00:00"));
+		newAttendance.setTotalOverTime(Time.valueOf("00:00:00"));
+		newAttendance.setTotalIncentiveSales(0.0f);
+
+		return shiftTimeAttendanceRepository.save(newAttendance);
+
+	}
+
+}

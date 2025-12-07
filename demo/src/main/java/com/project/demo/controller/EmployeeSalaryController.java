@@ -1,0 +1,173 @@
+package com.project.demo.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.project.demo.entity.EmployeeSalary;
+import com.project.demo.service.EmployeeSalaryService;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api")
+public class EmployeeSalaryController {
+
+    @Autowired
+    private EmployeeSalaryService employeeSalaryService;
+
+    @PostMapping("/discount")
+    public ResponseEntity<?> addDiscount(@RequestParam Integer employeeId, 
+                                         @RequestParam Integer year,
+                                         @RequestParam Integer month, 
+                                         @RequestParam Float amount, 
+                                         @RequestParam String reason) {
+        try {
+            validateSalaryParams(employeeId, year, month, amount, reason);
+            
+            if (amount <= 0) {
+                throw new IllegalArgumentException("Discount amount must be greater than 0");
+            }
+            
+            EmployeeSalary result = employeeSalaryService.addSalaryDiscount(employeeId, year, month, amount, reason);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Error adding salary discount: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/reward")
+    public ResponseEntity<?> addReward(@RequestParam Integer employeeId, 
+                                       @RequestParam Integer year,
+                                       @RequestParam Integer month, 
+                                       @RequestParam Float amount, 
+                                       @RequestParam String reason) {
+        try {
+            validateSalaryParams(employeeId, year, month, amount, reason);
+            
+            if (amount <= 0) {
+                throw new IllegalArgumentException("Reward amount must be greater than 0");
+            }
+            
+            EmployeeSalary result = employeeSalaryService.addSalaryReward(employeeId, year, month, amount, reason);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Error adding salary reward: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/incentive")
+    public ResponseEntity<?> addIncentive(@RequestParam Integer employeeId, 
+                                          @RequestParam Integer year,
+                                          @RequestParam Integer month, 
+                                          @RequestParam Float amount, 
+                                          @RequestParam String reason) {
+        try {
+            validateSalaryParams(employeeId, year, month, amount, reason);
+            
+            if (amount <= 0) {
+                throw new IllegalArgumentException("Incentive amount must be greater than 0");
+            }
+            
+            EmployeeSalary result = employeeSalaryService.addSalaryIncentive(employeeId, year, month, amount, reason);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Error adding salary incentive: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/pay")
+    public ResponseEntity<?> paySalary(@RequestParam Integer employeeId, 
+                                       @RequestParam Integer year,
+                                       @RequestParam Integer month, 
+                                       @RequestParam Float amount) {
+        try {
+            if (employeeId == null) {
+                throw new IllegalArgumentException("Employee ID cannot be null");
+            }
+            if (year == null || year < 2000 || year > 2100) {
+                throw new IllegalArgumentException("Invalid year. Must be between 2000 and 2100");
+            }
+            if (month == null || month < 1 || month > 12) {
+                throw new IllegalArgumentException("Invalid month. Must be between 1 and 12");
+            }
+            if (amount == null || amount <= 0) {
+                throw new IllegalArgumentException("Salary amount must be greater than 0");
+            }
+            
+            EmployeeSalary result = employeeSalaryService.paySalaryDirect(employeeId, year, month, amount);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Error paying salary: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/final")
+    public ResponseEntity<?> updateFinalSalary(@RequestParam Integer employeeId, 
+                                               @RequestParam Integer year,
+                                               @RequestParam Integer month, 
+                                               @RequestParam Float finalSalary) {
+        try {
+            if (employeeId == null) {
+                throw new IllegalArgumentException("Employee ID cannot be null");
+            }
+            if (year == null || year < 2000 || year > 2100) {
+                throw new IllegalArgumentException("Invalid year. Must be between 2000 and 2100");
+            }
+            if (month == null || month < 1 || month > 12) {
+                throw new IllegalArgumentException("Invalid month. Must be between 1 and 12");
+            }
+            if (finalSalary == null) {
+                throw new IllegalArgumentException("Final salary cannot be null");
+            }
+            
+            if (finalSalary < 0) {
+                throw new IllegalArgumentException("Final salary cannot be negative");
+            }
+            
+            EmployeeSalary result = employeeSalaryService.addFinalSalary(employeeId, year, month, finalSalary);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Error updating final salary: " + e.getMessage()));
+        }
+    }
+
+    private void validateSalaryParams(Integer employeeId, Integer year, Integer month, Float amount, String reason) {
+        if (employeeId == null) {
+            throw new IllegalArgumentException("Employee ID cannot be null");
+        }
+        if (year == null || year < 2000 || year > 2100) {
+            throw new IllegalArgumentException("Invalid year. Must be between 2000 and 2100");
+        }
+        if (month == null || month < 1 || month > 12) {
+            throw new IllegalArgumentException("Invalid month. Must be between 1 and 12");
+        }
+        if (amount == null) {
+            throw new IllegalArgumentException("Amount cannot be null");
+        }
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new IllegalArgumentException("Reason cannot be empty");
+        }
+    }
+}

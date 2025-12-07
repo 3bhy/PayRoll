@@ -1,0 +1,77 @@
+package com.project.demo.controller;
+
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+import com.project.demo.entity.Shift;
+import com.project.demo.model.ShiftModel;
+import com.project.demo.service.ShiftService;
+
+import jakarta.persistence.EntityNotFoundException;
+
+@RestController
+@RequestMapping("/api")
+public class ShiftController {
+
+	@Autowired
+	private final ShiftService shiftService;
+
+	public ShiftController(ShiftService shiftService) {
+		this.shiftService = shiftService;
+	}
+
+	// CREATE
+	@PostMapping("/addShift")
+	public ResponseEntity<Shift> createShift(@RequestBody ShiftModel shiftModel) {
+		Shift createdShift = shiftService.createShift(shiftModel);
+		return ResponseEntity.status(HttpStatus.CREATED).body(createdShift);
+	}
+
+	// get By ID
+	@GetMapping("/getShiftBy/{id}")
+	public ResponseEntity<?> getShiftById(@PathVariable Integer id) {
+		try {
+			Shift shift = shiftService.getShiftById(id);
+			return ResponseEntity.ok(shift);
+	    } catch (EntityNotFoundException e) {
+	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+	    }
+	}
+
+	// filter by companyId
+	@GetMapping("/searchShift")
+	public ResponseEntity<List<Shift>> getShiftsByCompanyId(@RequestParam(required = false) Integer companyId) {
+		List<Shift> shifts = shiftService.getShiftsByCompanyId(companyId);
+		return ResponseEntity.ok(shifts);
+	}
+
+	// UPDATE
+	@PutMapping("/update/{id}")
+	public ResponseEntity<?> updateShift(@PathVariable Integer id, @RequestBody Shift shiftDetails) {
+		try {
+			Shift updatedShift = shiftService.updateShift(id, shiftDetails);
+			return ResponseEntity.ok(updatedShift);
+	    } catch (EntityNotFoundException e) {
+	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+	    }
+	}
+
+	// delete
+	@DeleteMapping("/{id}")
+	public ResponseEntity<String> deleteShift(@PathVariable Integer id) {
+	    try {
+	        shiftService.deleteShift(id);
+	        return ResponseEntity.ok("Shift deleted successfully");
+	    } catch (EntityNotFoundException e) {
+	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+	    }
+	}
+
+	
+	
+
+}
