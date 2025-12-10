@@ -1,0 +1,301 @@
+package com.project.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import jakarta.annotation.PostConstruct;
+import org.hl7.fhir.r4.model.*;
+import org.springframework.stereotype.Service;
+
+import java.util.Date;
+
+@Service
+public class FhirService {
+    private IGenericClient client;
+    private final String LOCAL_SERVER = "http://localhost:8080/fhir";
+    
+    @PostConstruct
+    public void initClient() {
+        System.out.println("🎯 تهيئة عميل FHIR للسيرفر المحلي...");
+        System.out.println("🌐 عنوان السيرفر: " + LOCAL_SERVER);
+        
+        try {
+            // 1. إنشاء سياق FHIR للإصدار R4
+            FhirContext ctx = FhirContext.forR4();
+            
+            // 2. إنشاء العميل للسيرفر المحلي
+            this.client = ctx.newRestfulGenericClient(LOCAL_SERVER);
+            
+            // 3. إعداد مهلات الاتصال
+            ctx.getRestfulClientFactory().setConnectTimeout(10000);
+            ctx.getRestfulClientFactory().setSocketTimeout(10000);
+            
+            // 4. اختبار الاتصال
+            testConnection();
+            
+            System.out.println("✅ ✅ ✅ تم تهيئة عميل FHIR بنجاح!");
+            
+        } catch (Exception e) {
+            System.err.println("❌ فشل تهيئة العميل: " + e.getMessage());
+            System.err.println("\n💡 تأكد من تشغيل سيرفر HAPI FHIR:");
+            System.err.println("   docker run -p 8080:8080 hapiproject/hapi:v5.7.0");
+        }
+    }
+    
+    private void testConnection() {
+        try {
+            System.out.println("🔍 اختبار الاتصال بالسيرفر المحلي...");
+            
+            // جلب معلومات السيرفر
+            CapabilityStatement capability = client.capabilities()
+                .ofType(CapabilityStatement.class)
+                .execute();
+            
+            System.out.println("✅ الاتصال ناجح!");
+            System.out.println("📊 معلومات السيرفر:");
+            System.out.println("   - الإصدار: " + capability.getFhirVersion().getDisplay());
+            System.out.println("   - العنوان: " + LOCAL_SERVER);
+            System.out.println("   - حالة: نشط ✅");
+            
+        } catch (Exception e) {
+            System.err.println("❌ فشل الاتصال بالسيرفر المحلي!");
+            System.err.println("   الرسالة: " + e.getMessage());
+            throw new RuntimeException("يرجى تشغيل سيرفر HAPI FHIR المحلي أولاً");
+        }
+    }
+    
+    public void testSearch() {
+        if (client == null) {
+            System.err.println("⚠️  العميل غير مهيئ!");
+            return;
+        }
+        
+        System.out.println("\n🔍 بدء البحث عن المرضى من السيرفر المحلي");
+        System.out.println("=".repeat(60));
+        
+        try {
+            // بحث بسيط
+            Bundle results = client.search()
+                .forResource(Patient.class)
+                .count(10) // 10 نتائج
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            int count = results.getEntry().size();
+            int total = results.getTotal();
+            
+            System.out.println("📊 نتائج البحث:");
+            System.out.println("   - العدد الإجمالي في السيرفر: " + total);
+            System.out.println("   - عدد النتائج المعادة: " + count);
+            
+            if (count > 0) {
+                System.out.println("\n📋 تفاصيل المرضى:");
+                for (Bundle.BundleEntryComponent entry : results.getEntry()) {
+                    if (entry.getResource() instanceof Patient) {
+                        Patient patient = (Patient) entry.getResource();
+                        displayPatientInfo(patient);
+                    }
+                }
+            } else {
+                System.out.println("📭 لا يوجد مرضى في السيرفر بعد.");
+                System.out.println("💡 استخدم /api/fhir/patient لإنشاء مرضى تجريبيين");
+            }
+            
+        } catch (Exception e) {
+            System.err.println("\n❌ خطأ في البحث: " + e.getMessage());
+        }
+        
+        System.out.println("=".repeat(60));
+    }
+    
+    private void displayPatientInfo(Patient patient) {
+        StringBuilder info = new StringBuilder("👤 ");
+        
+        // المعرف
+        if (patient.hasId()) {
+            String id = patient.getIdElement().getIdPart();
+            id = id.substring(id.lastIndexOf("/") + 1);
+            info.append("ID: ").append(id).append(" | ");
+        }
+        
+        // الاسم
+        if (patient.hasName() && !patient.getName().isEmpty()) {
+            info.append("الاسم: ");
+            
+            String givenName = patient.getNameFirstRep().getGivenAsSingleString();
+            if (givenName != null && !givenName.isEmpty()) {
+                info.append(givenName).append(" ");
+            }
+            
+            String familyName = patient.getNameFirstRep().getFamily();
+            if (familyName != null && !familyName.isEmpty()) {
+                info.append(familyName);
+            }
+            
+            info.append(" | ");
+        }
+        
+        // الجنس
+        if (patient.hasGender()) {
+            String gender = patient.getGender().getDisplay();
+            info.append("الجنس: ").append(gender).append(" | ");
+        }
+        
+        // تاريخ الميلاد
+        if (patient.hasBirthDate()) {
+            Date birthDate = patient.getBirthDate();
+            info.append("الميلاد: ").append(birthDate);
+        }
+        
+        System.out.println(info.toString());
+    }
+    
+    public void createSamplePatient() {
+        if (client == null) {
+            System.err.println("⚠️  العميل غير مهيئ!");
+            return;
+        }
+        
+        try {
+            System.out.println("\n➕ إنشاء مريض تجريبي في السيرفر المحلي...");
+            
+            Patient patient = new Patient();
+            patient.addName()
+                .addGiven("أحمد")
+                .addGiven("محمد")
+                .setFamily("التجربة");
+            patient.setGender(Enumerations.AdministrativeGender.MALE);
+            
+            // إضافة تاريخ ميلاد
+            patient.setBirthDateElement(new DateType("1980-01-01"));
+            
+            // إضافة هاتف
+            patient.addTelecom()
+                .setSystem(ContactPoint.ContactPointSystem.PHONE)
+                .setValue("+201234567890")
+                .setUse(ContactPoint.ContactPointUse.HOME);
+            
+            // إضافة عنوان
+            patient.addAddress()
+                .addLine("شارع النهضة")
+                .setCity("القاهرة")
+                .setCountry("مصر");
+            
+            // حفظ المريض في السيرفر
+            ca.uhn.fhir.rest.api.MethodOutcome outcome = client.create()
+                .resource(patient)
+                .execute();
+            
+            String patientId = outcome.getId().getIdPart();
+            System.out.println("✅ تم إنشاء المريض بنجاح في السيرفر المحلي!");
+            System.out.println("📋 بيانات المريض:");
+            System.out.println("   - المعرف: " + patientId);
+            System.out.println("   - الاسم: أحمد محمد التجربة");
+            System.out.println("   - الجنس: ذكر");
+            System.out.println("   - تاريخ الميلاد: 1980-01-01");
+            System.out.println("   - الهاتف: +201234567890");
+            System.out.println("   - العنوان: شارع النهضة، القاهرة، مصر");
+            
+        } catch (Exception e) {
+            System.err.println("❌ فشل إنشاء المريض: " + e.getMessage());
+        }
+    }
+    
+    public void searchWithCriteria(String familyName) {
+        if (client == null) {
+            System.err.println("⚠️  العميل غير مهيئ!");
+            return;
+        }
+        
+        try {
+            System.out.println("\n🔎 البحث عن المرضى بعائلة: " + familyName);
+            
+            Bundle results = client.search()
+                .forResource(Patient.class)
+                .where(Patient.FAMILY.matches().value(familyName))
+                .count(10)
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            int count = results.getEntry().size();
+            System.out.println("📊 تم العثور على " + count + " مريض");
+            
+            if (count > 0) {
+                for (Bundle.BundleEntryComponent entry : results.getEntry()) {
+                    if (entry.getResource() instanceof Patient) {
+                        Patient patient = (Patient) entry.getResource();
+                        System.out.println("   - " + getPatientName(patient));
+                    }
+                }
+            } else {
+                System.out.println("📭 لا يوجد مرضى بهذه العائلة.");
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ فشل البحث: " + e.getMessage());
+        }
+    }
+    
+    private String getPatientName(Patient patient) {
+        if (!patient.hasName() || patient.getName().isEmpty()) {
+            return "غير معروف";
+        }
+        
+        StringBuilder name = new StringBuilder();
+        
+        for (org.hl7.fhir.r4.model.StringType given : patient.getNameFirstRep().getGiven()) {
+            if (given != null && !given.getValue().isEmpty()) {
+                name.append(given.getValue()).append(" ");
+            }
+        }
+        
+        String family = patient.getNameFirstRep().getFamily();
+        if (family != null && !family.isEmpty()) {
+            name.append(family);
+        }
+        
+        return name.toString().trim();
+    }
+    
+    // دالة جديدة: إنشاء عدة مرضى تجريبيين
+    public void createSamplePatients() {
+        String[][] patients = {
+            {"محمد", "علي", "ذكر", "1990-05-15"},
+            {"فاطمة", "حسن", "أنثى", "1985-08-22"},
+            {"خالد", "أحمد", "ذكر", "1978-12-10"},
+            {"سارة", "محمود", "أنثى", "1995-03-20"}
+        };
+        
+        System.out.println("\n➕ إنشاء " + patients.length + " مرضى تجريبيين...");
+        
+        for (String[] patientData : patients) {
+            try {
+                Patient patient = new Patient();
+                patient.addName()
+                    .addGiven(patientData[0])
+                    .setFamily(patientData[1]);
+                
+                if (patientData[2].equals("ذكر")) {
+                    patient.setGender(Enumerations.AdministrativeGender.MALE);
+                } else {
+                    patient.setGender(Enumerations.AdministrativeGender.FEMALE);
+                }
+                
+                patient.setBirthDateElement(new DateType(patientData[3]));
+                
+                // إضافة هاتف عشوائي
+                String phone = "+201" + (int)(Math.random() * 9000000 + 1000000);
+                patient.addTelecom()
+                    .setSystem(ContactPoint.ContactPointSystem.PHONE)
+                    .setValue(phone);
+                
+                client.create().resource(patient).execute();
+                System.out.println("   ✅ " + patientData[0] + " " + patientData[1]);
+                
+            } catch (Exception e) {
+                System.err.println("   ❌ " + patientData[0] + " " + patientData[1] + ": " + e.getMessage());
+            }
+        }
+        
+        System.out.println("✅ تم إنشاء المرضى التجريبيين!");
+    }
+}

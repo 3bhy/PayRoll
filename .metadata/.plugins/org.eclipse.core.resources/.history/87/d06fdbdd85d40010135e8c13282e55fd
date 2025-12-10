@@ -1,0 +1,30 @@
+package com.example.demo.model;
+
+import java.util.List;
+
+public class FhirPatientDTO {
+
+    private String id;
+    private String gender;
+    private List<Name> name;
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
+
+    public List<Name> getName() { return name; }
+    public void setName(List<Name> name) { this.name = name; }
+
+    public static class Name {
+        private String family;
+        private List<String> given;
+
+        public String getFamily() { return family; }
+        public void setFamily(String family) { this.family = family; }
+
+        public List<String> getGiven() { return given; }
+        public void setGiven(List<String> given) { this.given = given; }
+    }
+}

@@ -1,0 +1,57 @@
+package com.example.demo.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+
+@Entity
+@Table(name = "patients")
+@Data
+public class Patient {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
+    
+    @Column(name = "family_name")
+    private String familyName;
+    
+    @Column(name = "first_name")
+    private String firstName;
+    
+    public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public String getFamilyName() {
+		return familyName;
+	}
+
+	public void setFamilyName(String familyName) {
+		this.familyName = familyName;
+	}
+
+	public String getFirstName() {
+		return firstName;
+	}
+
+	public void setFirstName(String firstName) {
+		this.firstName = firstName;
+	}
+
+	public String getGender() {
+		return gender;
+	}
+
+	public void setGender(String gender) {
+		this.gender = gender;
+	}
+
+	@Column(name = "gender")
+    private String gender;
+  
+}

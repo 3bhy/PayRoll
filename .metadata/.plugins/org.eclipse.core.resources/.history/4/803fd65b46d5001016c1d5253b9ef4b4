@@ -1,0 +1,93 @@
+package com.example.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import org.hl7.fhir.instance.model.api.IIdType;
+import org.hl7.fhir.r4.model.Patient;
+import org.springframework.stereotype.Service;
+
+@Service
+public class FhirClientService {
+
+    private final FhirContext ctx = FhirContext.forR4();
+    private final IGenericClient client = ctx.newRestfulGenericClient("http://localhost:8080/fhir");
+
+    public MethodOutcome sendSimplePatient() {
+
+        Patient patient = new Patient();
+        patient.addIdentifier()
+                .setSystem("http://example.org/mrn")
+                .setValue("14253");
+
+        patient.addName()
+                .setFamily("Ahmed")
+                .addGiven("Ali");
+
+        MethodOutcome outcome = client.create()
+                .resource(patient)
+                .execute();
+
+        String logicalId = outcome.getId().getIdPart();
+        System.out.println("Created Patient Logical ID: " + logicalId);
+
+        return outcome;
+    }
+
+    public void readPatient(IIdType patientId) {
+
+        String logicalId = patientId.getIdPart();
+
+        Patient patient = client.read()
+                .resource(Patient.class)
+                .withId(logicalId)
+                .execute();
+
+        System.out.println("Patient ID: " + patient.getId());
+        System.out.println("Family: " + patient.getNameFirstRep().getFamily());
+        System.out.println("Given: " + patient.getNameFirstRep().getGivenAsSingleString());
+    }
+    
+    public Patient updatePatient(IIdType patientId) {
+
+        String logicalId = patientId.getIdPart();
+
+        // اقرأ الـ patient الأول
+        Patient existing = client.read()
+                .resource(Patient.class)
+                .withId(logicalId)
+                .execute();
+
+        // ----------- Update logic -----------
+
+        // Family name
+        existing.getNameFirstRep().setFamily("UpdatedFamily");
+
+        // Given name
+        existing.getNameFirstRep().getGiven().clear();      // امسح القديم
+        existing.getNameFirstRep().addGiven("UpdatedGiven"); // ضيف الجديد
+
+        // ----------- Send update -----------
+
+        MethodOutcome updatedOutcome = client.update()
+                .resource(existing)
+                .withId(logicalId)
+                .execute();
+
+        Patient updated = (Patient) updatedOutcome.getResource();
+        System.out.println("Updated Patient ID: " + updated.getId());
+
+        return updated;
+    }
+
+
+    // ------------------------- DELETE -------------------------
+    public void deletePatient(String id) {
+
+        client.delete()
+                .resourceById("Patient/" + id)
+                .execute();
+
+        System.out.println("Deleted Patient: " + id);
+    }
+}

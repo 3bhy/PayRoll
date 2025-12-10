@@ -1,0 +1,64 @@
+package com.project.demo.controller;
+
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import com.project.demo.entity.Shift;
+import com.project.demo.model.ShiftModel;
+import com.project.demo.service.ShiftService;
+
+@RestController
+@RequestMapping("/api")
+public class ShiftController {
+
+	@Autowired
+	private final ShiftService shiftService;
+
+	public ShiftController(ShiftService shiftService) {
+		this.shiftService = shiftService;
+	}
+
+	// CREATE
+	@PostMapping("/addShift")
+	public ResponseEntity<Shift> createShift(@RequestBody ShiftModel shiftModel) {
+		Shift createdShift = shiftService.createShift(shiftModel);
+		return ResponseEntity.status(HttpStatus.CREATED).body(createdShift);
+	}
+
+	// get By ID
+	@GetMapping("/getShiftBy/{id}")
+	public ResponseEntity<Shift> getShiftById(@PathVariable Integer id) {
+		Shift shift = shiftService.getShiftById(id);
+		return ResponseEntity.ok(shift);
+	}
+
+	// filter by companyId
+	@GetMapping("/searchShift")
+	public ResponseEntity<List<Shift>> getShiftsByCompanyId(@RequestParam(required = false) Integer companyId) {
+		List<Shift> shifts = shiftService.getShiftsByCompanyId(companyId);
+		return ResponseEntity.ok(shifts);
+	}
+
+	// UPDATE
+	@PutMapping("/update/{id}")
+	public ResponseEntity<Shift> updateShift(@PathVariable Integer id, @RequestBody Shift shiftDetails) {
+		Shift updatedShift = shiftService.updateShift(id, shiftDetails);
+		return ResponseEntity.ok(updatedShift);
+	}
+
+	// delete
+	@DeleteMapping("/{id}")
+	public ResponseEntity<String> deleteShift(@PathVariable Integer id) {
+	    try {
+	        shiftService.deleteShift(id);
+	        return ResponseEntity.ok("Shift deleted successfully");
+	    } catch (RuntimeException e) {
+	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+	    }
+	}
+
+	
+
+}

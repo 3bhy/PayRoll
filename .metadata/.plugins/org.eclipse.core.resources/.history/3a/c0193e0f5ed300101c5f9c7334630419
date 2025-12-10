@@ -1,0 +1,46 @@
+package com.project.demo.service;
+
+import org.hl7.fhir.r5.model.Bundle;
+import org.hl7.fhir.r5.model.Enumerations.AdministrativeGender;
+import org.hl7.fhir.r5.model.Patient;
+import org.springframework.stereotype.Service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.gclient.StringClientParam;
+import jakarta.annotation.PostConstruct;
+
+@Service
+public class FhirService {
+	   private  IGenericClient client;
+
+	   @PostConstruct
+	    public void initClient() {
+	        FhirContext ctx = FhirContext.forR5();
+	        String serverBase = "http://hapi.fhir.org/baseR5";
+	   this.client = ctx.newRestfulGenericClient(serverBase);
+    }
+//	    public Patient createPatient(String givenName, String familyName, AdministrativeGender gender) {
+//	        Patient patient = new Patient();
+//	        patient.addName().setFamily(familyName).addGiven(givenName);
+//	        patient.setGender(gender);
+//
+//	        MethodOutcome outcome = client.create().resource(patient).execute();
+//	        patient.setId(outcome.getId().getIdPart());
+//	        return patient;
+//	    }
+//
+//	    public Patient getPatient(String id) {
+//	        return client.read().resource(Patient.class).withId(id).execute();
+//	    }
+
+	   Bundle searchResults = client
+			    .search()
+			    .forResource(Patient.class)
+			    .where(new StringClientParam("family").matches().value("Doe"))
+			    .returnBundle(Bundle.class)
+			    .execute();
+
+			System.out.println("عدد المرضى الموجودين بالاسم Doe: " + searchResults.getEntry().size());
+}}

@@ -1,0 +1,187 @@
+package com.project.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import jakarta.annotation.PostConstruct;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Enumerations;
+import org.springframework.stereotype.Service;
+
+@Service
+public class FhirService {
+
+    private IGenericClient client;
+    private String activeServer;
+
+    // List of FHIR servers to try connecting to
+    private static final String[] SERVERS = {
+            "https://r4.smarthealthit.org",
+            "https://hapi.fhir.org/baseR4",
+            "http://hapi.fhir.org/baseR4",
+            "http://vonk.fire.ly/R4"
+    };
+
+    @PostConstruct
+    public void initClient() {
+        FhirContext ctx = FhirContext.forR4();
+        ctx.getRestfulClientFactory().setConnectTimeout(5000);
+        ctx.getRestfulClientFactory().setSocketTimeout(5000);
+
+        for (String server : SERVERS) {
+            if (tryServerConnection(ctx, server)) {
+                this.activeServer = server;
+                break;
+            }
+        }
+
+        if (this.client == null) {
+            System.err.println("❌ Failed to connect to all FHIR servers.");
+        }
+    }
+
+    private boolean tryServerConnection(FhirContext ctx, String serverBase) {
+        try {
+            System.out.println("Trying server: " + serverBase);
+            IGenericClient testClient = ctx.newRestfulGenericClient(serverBase);
+
+            // Test search (fast check)
+            testClient.search()
+                    .forResource(Patient.class)
+                    .count(1)
+                    .returnBundle(Bundle.class)
+                    .execute();
+
+            this.client = testClient;
+            System.out.println("✔ Connected to " + serverBase);
+            return true;
+
+        } catch (Exception ex) {
+            System.out.println("Failed: " + ex.getMessage());
+            return false;
+        }
+    }
+
+    // ================================
+    // SEARCH PATIENTS
+    // ================================
+    public void searchPatients() {
+        if (client == null) {
+            System.err.println("Client not initialized.");
+            return;
+        }
+
+        try {
+            Bundle bundle = client.search()
+                    .forResource(Patient.class)
+                    .count(5)
+                    .returnBundle(Bundle.class)
+                    .execute();
+
+            System.out.println("\n--- Patient Search Results ---");
+            System.out.println("Returned entries: " + bundle.getEntry().size());
+
+            for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                if (entry.getResource() instanceof Patient patient) {
+                    printPatientInfo(patient);
+                }
+            }
+
+        } catch (Exception ex) {
+            System.err.println("Search failed: " + ex.getMessage());
+        }
+    }
+
+    // ================================
+    // SEARCH BY FAMILY NAME
+    // ================================
+    public void searchByFamilyName(String familyName) {
+        if (client == null) return;
+
+        try {
+            Bundle results = client.search()
+                    .forResource(Patient.class)
+                    .where(Patient.FAMILY.matches().value(familyName))
+                    .count(10)
+                    .returnBundle(Bundle.class)
+                    .execute();
+
+            System.out.println("Found " + results.getEntry().size() + " patients:");
+
+            for (Bundle.BundleEntryComponent entry : results.getEntry()) {
+                if (entry.getResource() instanceof Patient patient) {
+                    System.out.println("- " + getPatientName(patient));
+                }
+            }
+
+        } catch (Exception ex) {
+            System.err.println("Search error: " + ex.getMessage());
+        }
+    }
+
+    // ================================
+    // GET PATIENT BY ID
+    // ================================
+    public void getPatientById(String id) {
+        if (client == null) return;
+
+        try {
+            Patient patient = client.read()
+                    .resource(Patient.class)
+                    .withId(id)
+                    .execute();
+
+            System.out.println("--- Patient Details ---");
+            printPatientInfo(patient);
+
+        } catch (Exception ex) {
+            System.err.println("Failed to get patient: " + ex.getMessage());
+        }
+    }
+
+    // ================================
+    // CREATE SAMPLE PATIENT
+    // ================================
+    public void createSamplePatient() {
+        if (client == null) return;
+
+        try {
+            Patient patient = new Patient();
+            patient.addName().addGiven("Ahmed").addGiven("Mohamed").setFamily("Test");
+            patient.setGender(Enumerations.AdministrativeGender.MALE);
+            patient.setBirthDateElement(new org.hl7.fhir.r4.model.DateType("1990-05-01"));
+
+            MethodOutcome outcome = client.create().resource(patient).execute();
+
+            System.out.println("✔ Patient Created. ID: " + outcome.getId().getIdPart());
+
+        } catch (Exception ex) {
+            System.err.println("Create failed: " + ex.getMessage());
+        }
+    }
+
+    // ================================
+    // PRINT PATIENT INFO
+    // ================================
+    private void printPatientInfo(Patient patient) {
+        System.out.println("ID: " + patient.getIdElement().getIdPart());
+        System.out.println("Name: " + getPatientName(patient));
+        System.out.println("Gender: " + (patient.hasGender() ? patient.getGender().getDisplay() : "Unknown"));
+        if (patient.hasBirthDate()) System.out.println("Birthdate: " + patient.getBirthDate());
+        System.out.println("-------------------------");
+    }
+
+    // ================================
+    // GET PATIENT NAME
+    // ================================
+    private String getPatientName(Patient patient) {
+        if (!patient.hasName()) return "Unknown";
+
+        String given = patient.getNameFirstRep().getGivenAsSingleString();
+        String family = patient.getNameFirstRep().getFamily();
+
+        return (given + " " + (family != null ? family : "")).trim();
+    }
+
+}

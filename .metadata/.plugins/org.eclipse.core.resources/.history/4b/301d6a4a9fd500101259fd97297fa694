@@ -1,0 +1,25 @@
+package com.example.demo;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import com.example.demo.service.FhirClientService;
+
+import ca.uhn.fhir.rest.api.MethodOutcome;
+
+
+@SpringBootApplication
+public class FhirApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(FhirApplication.class, args);
+		 FhirClientService service = new FhirClientService();
+
+	        // إنشاء Patient
+	        MethodOutcome outcome = service.sendSimplePatient();
+
+	        // قراءة نفس الـ Patient باستخدام ID اللي رجع
+	        service.readPatient(outcome.getId());
+	}
+	
+}

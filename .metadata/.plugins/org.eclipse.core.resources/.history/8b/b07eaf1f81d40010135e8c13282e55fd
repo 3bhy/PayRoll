@@ -1,0 +1,34 @@
+package com.example.demo.controller;
+
+import com.example.demo.entity.model.PatientModel;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+@RestController
+@RequestMapping("/patients")
+public class PatientController {
+
+	 private final PatientRepo repo;
+
+	    @PostMapping
+	    public String createPatient(@RequestBody PatientModel patient) {
+
+	        System.out.println("Received patient:");
+	        System.out.println("ID: " + patient.getId());
+	        System.out.println("Family: " + patient.getFamily());
+	        System.out.println("Given: " + patient.getGiven());
+	        System.out.println("Gender: " + patient.getGender());
+
+	        // تحويل للـ Entity
+	        Patient entity = new Patient();
+	        entity.setExternalId(patient.getId());
+	        entity.setFamily(patient.getFamily());
+	        entity.setGiven(patient.getGiven());
+	        entity.setGender(patient.getGender());
+
+	        // حفظ في H2
+	        repo.save(entity);
+
+	        return "Patient saved!";
+	    }
+}

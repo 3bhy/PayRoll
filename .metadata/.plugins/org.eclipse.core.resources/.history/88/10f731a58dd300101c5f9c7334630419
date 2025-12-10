@@ -1,0 +1,38 @@
+package com.project.demo.controller;
+
+import com.project.demo.service.FhirService;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CapabilityStatement;
+import org.hl7.fhir.r4.model.Patient;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/fhir")
+public class FhirController {
+
+    private final FhirService fhirService;
+
+    public FhirController(FhirService fhirService) {
+        this.fhirService = fhirService;
+    }
+
+    @GetMapping("/patients")
+    public Bundle searchPatients() {
+        return fhirService.searchPatients();
+    }
+
+    @GetMapping("/patients/family/{name}")
+    public Bundle searchByFamily(@PathVariable String name) {
+        return fhirService.searchByFamily(name);
+    }
+
+    @GetMapping("/patients/{id}")
+    public Patient getPatient(@PathVariable String id) {
+        return fhirService.getPatient(id);
+    }
+
+    @GetMapping("/server-info")
+    public CapabilityStatement getServerInfo() {
+        return fhirService.getServerInfo();
+    }
+}

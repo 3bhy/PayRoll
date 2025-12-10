@@ -1,0 +1,285 @@
+package com.project.demo;
+
+import com.project.demo.controller.EmployeeController;
+import com.project.demo.entity.Employee;
+import com.project.demo.model.EmployeeModel;
+import com.project.demo.service.EmployeeService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class EmployeeControllerTest {
+
+    @Mock
+    private EmployeeService employeeService;
+
+    @InjectMocks
+    private EmployeeController employeeController;
+
+    private Employee employee;
+    private EmployeeModel employeeModel;
+    private List<Employee> employeeList;
+
+    @BeforeEach
+    void setUp() {
+        employee = new Employee();
+        employee.setEmployeeId(1);
+        employee.setSalesIncentivePercent(10.0f);
+        employee.setIncentiveOnAllSales(false);
+
+        employeeModel = new EmployeeModel();
+       
+        employeeModel.setSalesIncentivePercent(10.0f);
+        employeeModel.setIncentiveOnAllSales(false);
+
+        employeeList = Arrays.asList(employee);
+    }
+
+    // ============ CREAT ============
+
+    @Test
+    void testCreateEmployee_Success() {
+        when(employeeService.createEmployee(any(EmployeeModel.class))).thenReturn(employee);
+
+        
+        ResponseEntity<?> response = employeeController.createEmployee(employeeModel);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, ((Employee) response.getBody()).getEmployee());
+
+        verify(employeeService, times(1)).createEmployee(any(EmployeeModel.class));
+    }
+
+    @Test
+    void testCreateEmployee_NullInput() {
+        ResponseEntity<?> response = employeeController.createEmployee(null);
+        assertNotNull(response);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        
+        verify(employeeService, never()).createEmployee(any());
+    }
+
+    @Test
+    void testCreateEmployee_ServiceThrowsException() {
+        when(employeeService.createEmployee(any(EmployeeModel.class)))
+                .thenThrow(new RuntimeException("Database error"));
+
+        ResponseEntity<?> response = employeeController.createEmployee(employeeModel);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertTrue(body.get("message").contains("Error creating employee"));
+
+        verify(employeeService, times(1)).createEmployee(any(EmployeeModel.class));
+    }
+    // ============ GET EMPLOYEE BY TD ============
+
+    @Test
+    void testGetEmployeeById_Success() {
+        
+        when(employeeService.getEmployeeById(1)).thenReturn(employee);
+
+        ResponseEntity<?> response = employeeController.getEmployeeById(1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, ((Employee) response.getBody()).getEmployee());
+
+        verify(employeeService, times(1)).getEmployeeById(1);
+    }
+
+    @Test
+    void testGetEmployeeById_NotFound() {
+        when(employeeService.getEmployeeById(999)).thenReturn(null);
+
+        ResponseEntity<?> response = employeeController.getEmployeeById(999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNull(response.getBody());
+
+        verify(employeeService, times(1)).getEmployeeById(999);
+    }
+
+    @Test
+    void testGetEmployeeById_NullId() {
+        ResponseEntity<?> response = employeeController.getEmployeeById(null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        verify(employeeService, times(1)).getEmployeeById(null);
+    }
+
+   
+
+    // ============ UPDATE EMPLOYEE============
+
+    @Test
+    void testUpdateEmployee_Success() {
+        
+        Employee updatedEmployee = new Employee();
+        updatedEmployee.setEmployeeId(1);
+       
+
+        when(employeeService.updateEmployee(eq(1), any(Employee.class))).thenReturn(updatedEmployee);
+
+        ResponseEntity<?> response = employeeController.updateEmployee(1, updatedEmployee);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, ((Employee) response.getBody()).getEmployee());
+      
+
+        verify(employeeService, times(1)).updateEmployee(eq(1), any(Employee.class));
+    }
+
+    @Test
+    void testUpdateEmployee_NotFound() {
+        when(employeeService.updateEmployee(eq(999), any(Employee.class))).thenReturn(null);
+
+        ResponseEntity<?> response = employeeController.updateEmployee(999, employee);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNull(response.getBody());
+
+        verify(employeeService, times(1)).updateEmployee(eq(999), any(Employee.class));
+    }
+
+  
+
+    @Test
+    void testUpdateEmployee_NullEmployeeDetails() {
+    	 ResponseEntity<?> response = employeeController.updateEmployee(1, null);
+    	    assertNotNull(response);
+    	    assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    // ============ DELETE EMPLOYEE   ============
+
+    @Test
+    void testDeleteEmployee_Success() {
+        doNothing().when(employeeService).deleteEmployee(1);
+
+        ResponseEntity<?> response = employeeController.deleteEmployee(1);
+
+        
+        assertNotNull(response);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        assertNull(response.getBody());
+
+        verify(employeeService, times(1)).deleteEmployee(1);
+    }
+
+    @Test
+    void testDeleteEmployee_NotFound() {
+        doThrow(new RuntimeException("Employee not found"))
+            .when(employeeService).deleteEmployee(999);
+
+        ResponseEntity<?> response = employeeController.deleteEmployee(999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertTrue(body.get("message").contains("Error deleting employee"));
+
+        verify(employeeService, times(1)).deleteEmployee(999);
+    }
+    @Test
+    void testDeleteEmployee_NullId() {
+        doNothing().when(employeeService).deleteEmployee(null);
+
+        ResponseEntity<?> response = employeeController.deleteEmployee(null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+
+        verify(employeeService, times(1)).deleteEmployee(null);
+    }
+
+    // ============ GET BY FILTERS ============
+
+    @Test
+    void testGetEmployeeByFilters_AllFilters() {
+        when(employeeService.getEmployeesByFilters(1, 2, 3)).thenReturn(employeeList);
+
+        ResponseEntity<List<Employee>> response = employeeController.getEmployeeByFilters(1, 2, 3);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+        assertEquals(1, response.getBody().get(0).getEmployee());
+
+        verify(employeeService, times(1)).getEmployeesByFilters(1, 2, 3);
+    }
+
+    @Test
+    void testGetEmployeeByFilters_SomeFiltersNull() {
+        when(employeeService.getEmployeesByFilters(1, null, null)).thenReturn(employeeList);
+
+        ResponseEntity<List<Employee>> response = employeeController.getEmployeeByFilters(1, null, null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+
+        verify(employeeService, times(1)).getEmployeesByFilters(1, null, null);
+    }
+
+    @Test
+    void testGetEmployeeByFilters_AllFiltersNull() {
+        when(employeeService.getEmployeesByFilters(null, null, null)).thenReturn(employeeList);
+
+        ResponseEntity<List<Employee>> response = employeeController.getEmployeeByFilters(null, null, null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+
+        verify(employeeService, times(1)).getEmployeesByFilters(null, null, null);
+    }
+
+    @Test
+    void testGetEmployeeByFilters_EmptyResult() {
+        List<Employee> emptyList = Arrays.asList();
+        when(employeeService.getEmployeesByFilters(999, 999, 999)).thenReturn(emptyList);
+
+        ResponseEntity<List<Employee>> response = employeeController.getEmployeeByFilters(999, 999, 999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isEmpty());
+
+        verify(employeeService, times(1)).getEmployeesByFilters(999, 999, 999);
+    }
+
+}

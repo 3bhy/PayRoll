@@ -1,0 +1,674 @@
+package com.project.demo;
+
+import com.project.demo.controller.LoginController;
+import com.project.demo.entity.Employee;
+import com.project.demo.entity.Login;
+import com.project.demo.entity.ShiftTime;
+import com.project.demo.entity.ShiftTimeAttendance;
+import com.project.demo.model.LoginModel;
+import com.project.demo.service.LoginService;
+import com.project.demo.repo.LoginRepo;
+import jakarta.persistence.EntityNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import java.time.LocalDateTime;
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class LoginControllerTest {
+
+    @Mock
+    private LoginService loginService;
+
+    @Mock
+    private LoginRepo loginRepository;
+
+    @InjectMocks
+    private LoginController loginController;
+
+    private Employee employee;
+    private Login login;
+    private LoginModel loginModel;
+    private ShiftTime shiftTime;
+    private ShiftTimeAttendance attendance;
+
+    @BeforeEach
+    void setUp() {
+        employee = new Employee();
+        employee.setEmployeeId(100);
+
+        attendance = new ShiftTimeAttendance();
+        attendance.setShiftTimeAttendanceId(1);
+
+        login = new Login();
+        login.setLoginId(1);
+        login.setEmployee(employee);
+        login.setLoginDateTime(LocalDateTime.now().minusHours(2));
+        login.setLogoutDateTime(LocalDateTime.now().minusHours(1));
+        login.setActivityTime(new java.sql.Time(3600000)); // 1 hour
+        login.setLogoutStatus(false);
+        login.setLocked(false);
+        login.setShiftTimeAttendanceId(attendance);
+
+        loginModel = new LoginModel();
+        loginModel.setLoginId(1);
+        loginModel.setEmployeeId(100);
+        loginModel.setLoginDateTime(LocalDateTime.now().minusHours(2));
+        loginModel.setLogoutDateTime(LocalDateTime.now().minusHours(1));
+        loginModel.setLogoutStatus(false);
+        loginModel.setLocked(false);
+        loginModel.setShiftTimeAttendanceId(1);
+
+        shiftTime = new ShiftTime();
+        shiftTime.setShiftTimeId(1);
+        shiftTime.setFromTime(java.sql.Time.valueOf("09:00:00"));
+        shiftTime.setToTime(java.sql.Time.valueOf("17:00:00"));
+    }
+
+    // ============ LOCK LOGIN TESTS ============
+
+    @Test
+    void testLockLogin_Success() {
+        // Mock finding active login
+        when(loginService.findActiveLoginWithinShift(100)).thenReturn(Optional.of(login));
+        
+        // Mock the actual locking
+        doNothing().when(loginService).lockLoginByEmployeeId(100);
+
+        ResponseEntity<?> response = loginController.lockLogin(100);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertEquals("Login locked successfully", body.get("message"));
+        
+        verify(loginService, times(1)).findActiveLoginWithinShift(100);
+        verify(loginService, times(1)).lockLoginByEmployeeId(100);
+    }
+
+    @Test
+    void testLockLogin_InvalidEmployeeId() {
+        // Mock no active login found
+        when(loginService.findActiveLoginWithinShift(999)).thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = loginController.lockLogin(999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertTrue(body.get("message").contains("No active login found"));
+        
+        verify(loginService, times(1)).findActiveLoginWithinShift(999);
+        verify(loginService, never()).lockLoginByEmployeeId(anyInt());
+    }
+
+    @Test
+    void testLockLogin_NullEmployeeId() {
+        when(loginService.findActiveLoginWithinShift(null)).thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = loginController.lockLogin(null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        verify(loginService, times(1)).findActiveLoginWithinShift(null);
+        verify(loginService, never()).lockLoginByEmployeeId(anyInt());
+    }
+
+    @Test
+    void testLockLogin_AlreadyLocked() {
+        login.setLocked(true);
+        
+        when(loginService.findActiveLoginWithinShift(100)).thenReturn(Optional.of(login));
+
+        ResponseEntity<?> response = loginController.lockLogin(100);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertEquals("Login is already locked", body.get("message"));
+        
+        verify(loginService, times(1)).findActiveLoginWithinShift(100);
+        verify(loginService, never()).lockLoginByEmployeeId(anyInt());
+    }
+    // ============ CREATE LOGIN TESTS ============
+
+    @Test
+    void testCreateLogin_Success() {
+        when(loginService.createLoginIfWasActiveLogin(any(LoginModel.class))).thenReturn(login);
+        when(loginService.convertToModel(any(Login.class))).thenReturn(loginModel);
+
+        ResponseEntity<?> response = loginController.createLogin(loginModel);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody() instanceof LoginModel);
+        
+        LoginModel result = (LoginModel) response.getBody();
+        assertEquals(1, result.getLoginId());
+        assertEquals(100, result.getEmployeeId());
+
+        verify(loginService, times(1)).createLoginIfWasActiveLogin(any(LoginModel.class));
+        verify(loginService, times(1)).convertToModel(any(Login.class));
+    }
+
+    @Test
+    void testCreateLogin_NullInput() {
+        when(loginService.createLoginIfWasActiveLogin(null)).thenReturn(login);
+        when(loginService.convertToModel(any(Login.class))).thenReturn(loginModel);
+        
+        ResponseEntity<?> response = loginController.createLogin(null);
+        
+        assertNotNull(response);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        
+        verify(loginService, times(1)).createLoginIfWasActiveLogin(null);
+    }
+    @Test
+    void testCreateLogin_ServiceThrowsException() {
+        when(loginService.createLoginIfWasActiveLogin(any(LoginModel.class)))
+            .thenThrow(new RuntimeException("Database error"));
+
+        ResponseEntity<?> response = loginController.createLogin(loginModel);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertTrue(body.get("message").contains("Error creating login"));
+        
+        verify(loginService, times(1)).createLoginIfWasActiveLogin(any(LoginModel.class));
+    }
+
+    // ============ GET LOGIN BY ID TESTS ============
+
+    @Test
+    void testGetLoginById_Success() {
+        when(loginService.getLoginById(1)).thenReturn(Optional.of(login));
+        when(loginService.convertToModel(any(Login.class))).thenReturn(loginModel);
+
+        ResponseEntity<?> response = loginController.getLoginById(1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody() instanceof LoginModel);
+        
+        LoginModel result = (LoginModel) response.getBody();
+        assertEquals(1, result.getLoginId());
+
+        verify(loginService, times(1)).getLoginById(1);
+        verify(loginService, times(1)).convertToModel(any(Login.class));
+    }
+
+    @Test
+    void testGetLoginById_NotFound() {
+        when(loginService.getLoginById(999)).thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = loginController.getLoginById(999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertEquals("Login not found with id: 999", body.get("message"));
+
+        verify(loginService, times(1)).getLoginById(999);
+        verify(loginService, never()).convertToModel(any(Login.class));
+    }
+
+    @Test
+    void testGetLoginById_ServiceThrowsException() {
+        when(loginService.getLoginById(1)).thenThrow(new RuntimeException("Database error"));
+
+        ResponseEntity<?> response = loginController.getLoginById(1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        verify(loginService, times(1)).getLoginById(1);
+    }
+
+    // ============ DELETE LOGIN TESTS ============
+
+    @Test
+    void testDeleteLogin_Success() {
+        when(loginService.getLoginById(1)).thenReturn(Optional.of(login));
+        
+        doNothing().when(loginService).deleteLogin(1);
+
+        ResponseEntity<?> response = loginController.deleteLogin(1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertEquals("Login deleted successfully", body.get("message"));
+
+        verify(loginService, times(1)).getLoginById(1);
+        verify(loginService, times(1)).deleteLogin(1);
+    }
+
+    @Test
+    void testDeleteLogin_NotFound() {
+        when(loginService.getLoginById(999)).thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = loginController.deleteLogin(999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertEquals("Login not found with id: 999", body.get("message"));
+
+        verify(loginService, times(1)).getLoginById(999);
+        verify(loginService, never()).deleteLogin(anyInt());
+    }
+
+    @Test
+    void testDeleteLogin_GeneralException() {
+        when(loginService.getLoginById(1)).thenReturn(Optional.of(login));
+        
+        doThrow(new RuntimeException("Database connection failed"))
+            .when(loginService).deleteLogin(1);
+
+        ResponseEntity<?> response = loginController.deleteLogin(1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertTrue(body.get("message").contains("Error deleting login"));
+
+        verify(loginService, times(1)).getLoginById(1);
+        verify(loginService, times(1)).deleteLogin(1);
+    }
+    // ============ FILTER LOGINS TESTS ============
+
+    @Test
+    void testGetLoginsByFilters_AllFilters() {
+        List<Login> logins = Arrays.asList(login, login);
+        List<LoginModel> loginModels = Arrays.asList(loginModel, loginModel);
+
+        when(loginService.getLoginsByFilters(100, 
+                login.getLoginDateTime(), 
+                login.getLogoutDateTime(), 
+                false, 
+                false))
+                .thenReturn(logins);
+        when(loginService.convertToModel(any(Login.class))).thenReturn(loginModel);
+
+        ResponseEntity<List<LoginModel>> response = loginController.getLoginsByFilters(
+                100, 
+                login.getLoginDateTime(), 
+                login.getLogoutDateTime(), 
+                false, 
+                false);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(2, response.getBody().size());
+
+        verify(loginService, times(1)).getLoginsByFilters(100, 
+                login.getLoginDateTime(), 
+                login.getLogoutDateTime(), 
+                false, 
+                false);
+        verify(loginService, times(2)).convertToModel(any(Login.class));
+    }
+
+    @Test
+    void testGetLoginsByFilters_SomeFiltersNull() {
+        List<Login> logins = Arrays.asList(login);
+        when(loginService.getLoginsByFilters(100, null, null, null, null))
+                .thenReturn(logins);
+        when(loginService.convertToModel(any(Login.class))).thenReturn(loginModel);
+
+        ResponseEntity<List<LoginModel>> response = loginController.getLoginsByFilters(
+                100, null, null, null, null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+
+        verify(loginService, times(1)).getLoginsByFilters(100, null, null, null, null);
+    }
+
+    @Test
+    void testGetLoginsByFilters_EmptyResult() {
+        List<Login> emptyList = Collections.emptyList();
+        when(loginService.getLoginsByFilters(999, null, null, null, null))
+                .thenReturn(emptyList);
+
+        ResponseEntity<List<LoginModel>> response = loginController.getLoginsByFilters(
+                999, null, null, null, null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isEmpty());
+
+        verify(loginService, times(1)).getLoginsByFilters(999, null, null, null, null);
+    }
+
+    @Test
+    void testGetLoginsByFilters_ServiceThrowsException() {
+        when(loginService.getLoginsByFilters(999, null, null, null, null))
+                .thenThrow(new RuntimeException("Database error"));
+
+        ResponseEntity<List<LoginModel>> response = loginController.getLoginsByFilters(
+                999, null, null, null, null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isEmpty());
+        
+        verify(loginService, times(1)).getLoginsByFilters(999, null, null, null, null);
+    }
+
+    // ============ LOGOUT BY LOGIN ID TESTS ============
+
+    @Test
+    void testLogoutByLoginId_Success() {
+        when(loginService.logoutByLoginId(1)).thenReturn(login);
+        when(loginService.convertToModel(any(Login.class))).thenReturn(loginModel);
+
+        ResponseEntity<?> response = loginController.logoutByLoginId(1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody() instanceof LoginModel);
+        
+        LoginModel result = (LoginModel) response.getBody();
+        assertEquals(1, result.getLoginId());
+
+        verify(loginService, times(1)).logoutByLoginId(1);
+        verify(loginService, times(1)).convertToModel(any(Login.class));
+    }
+
+    @Test
+    void testLogoutByLoginId_NotFound() {
+        when(loginService.logoutByLoginId(999))
+                .thenThrow(new EntityNotFoundException("Login not found"));
+
+        ResponseEntity<?> response = loginController.logoutByLoginId(999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertEquals("Login not found", body.get("message"));
+
+        verify(loginService, times(1)).logoutByLoginId(999);
+    }
+
+    @Test
+    void testLogoutByLoginId_GeneralException() {
+        when(loginService.logoutByLoginId(1))
+                .thenThrow(new RuntimeException("Database error"));
+
+        ResponseEntity<?> response = loginController.logoutByLoginId(1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        verify(loginService, times(1)).logoutByLoginId(1);
+    }
+
+    // ============ GET OPEN LOGINS TESTS ============
+
+    @Test
+    void testGetOpenLogins_Success() {
+        List<Login> openLogins = Arrays.asList(login, login);
+        List<LoginModel> loginModels = Arrays.asList(loginModel, loginModel);
+
+        when(loginService.getOpenLogins()).thenReturn(openLogins);
+        when(loginService.convertToModel(any(Login.class))).thenReturn(loginModel);
+
+        ResponseEntity<List<LoginModel>> response = loginController.getOpenLogins();
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(2, response.getBody().size());
+
+        verify(loginService, times(1)).getOpenLogins();
+        verify(loginService, times(2)).convertToModel(any(Login.class));
+    }
+
+    @Test
+    void testGetOpenLogins_Empty() {
+        List<Login> emptyList = Collections.emptyList();
+        when(loginService.getOpenLogins()).thenReturn(emptyList);
+
+        ResponseEntity<List<LoginModel>> response = loginController.getOpenLogins();
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isEmpty());
+
+        verify(loginService, times(1)).getOpenLogins();
+    }
+
+    @Test
+    void testGetOpenLogins_ServiceThrowsException() {
+        when(loginService.getOpenLogins()).thenThrow(new RuntimeException("Database error"));
+
+        ResponseEntity<List<LoginModel>> response = loginController.getOpenLogins();
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isEmpty());
+
+        verify(loginService, times(1)).getOpenLogins();
+    }
+
+    // ============ LOGOUT BY EMPLOYEE ID TESTS ============
+
+    @Test
+    void testLogoutByEmployeeId_Success() {
+        List<Login> activeLogins = Collections.singletonList(login);
+        when(loginRepository.findActiveLogins(100)).thenReturn(activeLogins);
+        when(loginService.processLogout(eq(100), eq(1))).thenReturn(login);
+
+        ResponseEntity<?> response = loginController.logoutByEmployeeId(100);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Login);
+
+        Login result = (Login) response.getBody();
+        assertNotNull(result);
+        assertEquals(1, result.getLoginId());
+
+        verify(loginRepository, times(1)).findActiveLogins(100);
+        verify(loginService, times(1)).processLogout(eq(100), eq(1));
+    }
+
+    @Test
+    void testLogoutByEmployeeId_NoActiveLogin() {
+        when(loginRepository.findActiveLogins(999)).thenReturn(Collections.emptyList());
+
+        ResponseEntity<?> response = loginController.logoutByEmployeeId(999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertTrue(body.get("message").contains("No active login found"));
+
+        verify(loginRepository, times(1)).findActiveLogins(999);
+        verify(loginService, never()).processLogout(anyInt(), anyInt());
+    }
+
+    @Test
+    void testLogoutByEmployeeId_NullAttendance() {
+        login.setShiftTimeAttendanceId(null);
+        List<Login> activeLogins = Collections.singletonList(login);
+
+        when(loginRepository.findActiveLogins(100)).thenReturn(activeLogins);
+        when(loginService.processLogout(eq(100), isNull())).thenReturn(login);
+
+        ResponseEntity<?> response = loginController.logoutByEmployeeId(100);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Login);
+
+        Login result = (Login) response.getBody();
+        assertNotNull(result);
+
+        verify(loginRepository, times(1)).findActiveLogins(100);
+        verify(loginService, times(1)).processLogout(eq(100), isNull());
+    }
+
+    // ============ GET ACTIVE LOGIN TESTS ============
+
+    @Test
+    void testGetActiveLogin_Success() {
+        when(loginService.findActiveLoginWithinShift(100)).thenReturn(Optional.of(login));
+        when(loginService.convertToModel(any(Login.class))).thenReturn(loginModel);
+        doNothing().when(loginService).lockLoginByEmployeeId(100);
+
+        ResponseEntity<?> response = loginController.getActiveLogin(100);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody() instanceof LoginModel);
+        
+        LoginModel result = (LoginModel) response.getBody();
+        assertEquals(1, result.getLoginId());
+
+        verify(loginService, times(2)).findActiveLoginWithinShift(100);
+        verify(loginService, times(1)).convertToModel(any(Login.class));
+        verify(loginService, times(1)).lockLoginByEmployeeId(100);
+    }
+
+    @Test
+    void testGetActiveLogin_NotFound() {
+        when(loginService.findActiveLoginWithinShift(999)).thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = loginController.getActiveLogin(999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertEquals("No active login found for employee", body.get("message"));
+
+        verify(loginService, times(1)).findActiveLoginWithinShift(999);
+        verify(loginService, never()).convertToModel(any());
+        verify(loginService, never()).lockLoginByEmployeeId(anyInt());
+    }
+
+    @Test
+    void testGetActiveLogin_ServiceThrowsException() {
+        when(loginService.findActiveLoginWithinShift(100))
+            .thenThrow(new RuntimeException("Database error"));
+
+        ResponseEntity<?> response = loginController.getActiveLogin(100);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        verify(loginService, times(1)).findActiveLoginWithinShift(100);
+    }
+
+    // ============ GET CURRENT SHIFT TESTS ============
+
+    @Test
+    void testGetCurrentShift_Success() {
+        when(loginService.getCurrentShiftTimeForEmployee(100)).thenReturn(shiftTime);
+
+        ResponseEntity<?> response = loginController.getCurrentShift(100);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody() instanceof ShiftTime);
+        
+        ShiftTime result = (ShiftTime) response.getBody();
+        assertEquals(1, result.getShiftTimeId());
+        assertEquals(java.sql.Time.valueOf("09:00:00"), result.getFromTime());
+
+        verify(loginService, times(1)).getCurrentShiftTimeForEmployee(100);
+    }
+
+    @Test
+    void testGetCurrentShift_NotFound() {
+        when(loginService.getCurrentShiftTimeForEmployee(999)).thenReturn(null);
+
+        ResponseEntity<?> response = loginController.getCurrentShift(999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) response.getBody();
+        assertEquals("No shift found for employee", body.get("message"));
+
+        verify(loginService, times(1)).getCurrentShiftTimeForEmployee(999);
+    }
+
+    @Test
+    void testGetCurrentShift_ServiceThrowsException() {
+        when(loginService.getCurrentShiftTimeForEmployee(100))
+            .thenThrow(new RuntimeException("Database error"));
+
+        ResponseEntity<?> response = loginController.getCurrentShift(100);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertTrue(response.getBody() instanceof Map);
+        
+        verify(loginService, times(1)).getCurrentShiftTimeForEmployee(100);
+    }
+}

@@ -1,0 +1,184 @@
+package com.example.demo.controller;
+
+import com.example.demo.service.FhirService;
+import org.hl7.fhir.r4.model.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.*;
+
+@RestController
+@RequestMapping("/api/fhir")
+public class FhirController {
+
+    private final FhirService fhirService;
+
+    public FhirController(FhirService fhirService) {
+        this.fhirService = fhirService;
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<Map<String, Object>> getStatus() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "active");
+        response.put("timestamp", new Date());
+        response.put("server", fhirService.getServerUrl());
+        response.put("port", 8081);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/server-info")
+    public ResponseEntity<?> getServerInfo() {
+        try {
+            CapabilityStatement cs = fhirService.getServerCapabilities();
+
+            return ResponseEntity.ok(Map.of(
+                    "fhirVersion", cs.getFhirVersion().getDisplay(),
+                    "serverUrl", fhirService.getServerUrl(),
+                    "status", "connected",
+                    "resources", cs.hasRest() ? cs.getRestFirstRep().getResource().size() : 0
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", e.getMessage(),
+                    "status", "connection_failed"
+            ));
+        }
+    }
+
+    @GetMapping("/patients")
+    public ResponseEntity<?> searchPatients(@RequestParam(defaultValue = "10") int count) {
+        try {
+            Bundle bundle = fhirService.searchPatients(count);
+
+            List<Map<String, Object>> patients = new ArrayList<>();
+
+            for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                if (entry.getResource() instanceof Patient patient) {
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("id", fhirService.extractId(patient.getIdElement().getIdPart()));
+
+                    if (patient.hasName()) {
+                        data.put("givenName", patient.getNameFirstRep().getGivenAsSingleString());
+                        data.put("familyName", patient.getNameFirstRep().getFamily());
+                    }
+
+                    if (patient.hasGender()) data.put("gender", patient.getGender().getDisplay());
+                    if (patient.hasBirthDate()) data.put("birthDate", patient.getBirthDate());
+
+                    patients.add(data);
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "total", bundle.getTotal(),
+                    "count", patients.size(),
+                    "patients", patients,
+                    "server", fhirService.getServerUrl()
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/patients/{id}")
+    public ResponseEntity<?> getPatient(@PathVariable String id) {
+        try {
+            Patient patient = fhirService.getPatientById(id);
+
+            Map<String, Object> patientData = new HashMap<>();
+            patientData.put("id", fhirService.extractId(patient.getIdElement().getIdPart()));
+
+            if (patient.hasName()) {
+                patientData.put("givenName", patient.getNameFirstRep().getGivenAsSingleString());
+                patientData.put("familyName", patient.getNameFirstRep().getFamily());
+            }
+
+            if (patient.hasGender()) patientData.put("gender", patient.getGender().getDisplay());
+            if (patient.hasBirthDate()) patientData.put("birthDate", patient.getBirthDate());
+
+            return ResponseEntity.ok(patientData);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "Patient not found: " + e.getMessage(),
+                    "id", id
+            ));
+        }
+    }
+
+    @PostMapping("/patients/search")
+    public ResponseEntity<?> searchPatientsByCriteria(@RequestBody Map<String, String> criteria) {
+        try {
+            Bundle bundle = fhirService.searchPatientsByCriteria(criteria);
+
+            List<Map<String, Object>> patients = new ArrayList<>();
+
+            for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                if (entry.getResource() instanceof Patient patient) {
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("id", fhirService.extractId(patient.getIdElement().getIdPart()));
+
+                    if (patient.hasName()) {
+                        data.put("name", patient.getNameFirstRep().getGivenAsSingleString() + " " +
+                                patient.getNameFirstRep().getFamily());
+                    }
+
+                    patients.add(data);
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "criteria", criteria,
+                    "total", bundle.getTotal(),
+                    "count", patients.size(),
+                    "patients", patients
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", e.getMessage(),
+                    "criteria", criteria
+            ));
+        }
+    }
+
+    @GetMapping("/resources")
+    public ResponseEntity<?> getAvailableResources() {
+        try {
+            List<String> resources = fhirService.getAvailableResources();
+            CapabilityStatement cs = fhirService.getServerCapabilities();
+
+            return ResponseEntity.ok(Map.of(
+                    "server", fhirService.getServerUrl(),
+                    "fhirVersion", cs.getFhirVersion().getDisplay(),
+                    "totalResources", resources.size(),
+                    "resources", resources
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/test")
+    public ResponseEntity<String> testConnection() {
+        try {
+            CapabilityStatement cs = fhirService.getServerCapabilities();
+
+            return ResponseEntity.ok(
+                    "Connected\n" +
+                    "Server: " + fhirService.getServerUrl() + "\n" +
+                    "FHIR Version: " + cs.getFhirVersion().getDisplay() + "\n" +
+                    "Time: " + new Date()
+            );
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Connection failed: " + e.getMessage());
+        }
+    }
+}

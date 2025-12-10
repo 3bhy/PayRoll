@@ -1,0 +1,24 @@
+package com.example.demo.controller;
+
+import com.example.demo.entity.Patient;
+import com.example.demo.entity.model.PatientModel;
+import com.example.demo.repo.PatientRepo;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+@RestController
+@RequestMapping("/patients")
+public class PatientController {
+
+    @PostMapping
+    public ResponseEntity<String> createPatient(@RequestBody PatientModel patient) {
+        System.out.println("Received patient:");
+        System.out.println("ID: " + patient.getId());
+        System.out.println("Family: " + patient.getFamily());
+        System.out.println("Given: " + patient.getGiven());
+        System.out.println("Gender: " + patient.getGender());
+
+        return ResponseEntity.ok("Patient received!");
+    }
+}

@@ -1,0 +1,105 @@
+package com.example.demo.controller;
+
+import com.example.demo.entity.Patient;
+import com.example.demo.repo.PatientRepo;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.*;
+
+@RestController
+@RequestMapping("/fhir")
+public class PatientController {
+    
+    private final PatientRepo patientRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    
+    public PatientController(PatientRepo patientRepository) {
+        this.patientRepository = patientRepository;
+    }
+    
+    @PostMapping("/Patient")
+    
+    
+    
+    public Map<String, Object> createPatient(@RequestBody String jsonBody, HttpServletRequest request) {
+        System.out.println("\n🎯 ===============================");
+        System.out.println("📨 طلب وصل للسيرفر!");
+        System.out.println("================================");
+        System.out.println("Time: " + new java.util.Date());
+        System.out.println("Client IP: " + request.getRemoteAddr());
+        System.out.println("URL: " + request.getRequestURL());
+        System.out.println("Method: " + request.getMethod());
+        System.out.println("Content-Type: " + request.getContentType());
+        System.out.println("Body Length: " + jsonBody.length());
+        System.out.println("================================");
+        try {
+            System.out.println("\n📥 " + "=".repeat(40));
+            System.out.println("📋 استقبال Patient جديد من الكلاينت...");
+            System.out.println("=".repeat(40));
+            
+            // تحليل JSON
+            JsonNode jsonNode = objectMapper.readTree(jsonBody);
+            
+            // استخراج البيانات
+            String familyName = "";
+            String givenName = "";
+            String gender = "";
+            
+            // استخراج الاسم
+            if (jsonNode.has("name") && jsonNode.get("name").isArray() && 
+                jsonNode.get("name").size() > 0) {
+                JsonNode nameNode = jsonNode.get("name").get(0);
+                
+                if (nameNode.has("family")) {
+                    familyName = nameNode.get("family").asText();
+                }
+                
+                if (nameNode.has("given") && nameNode.get("given").isArray() && 
+                    nameNode.get("given").size() > 0) {
+                    givenName = nameNode.get("given").get(0).asText();
+                }
+            }
+            
+            // استخراج النوع
+            if (jsonNode.has("gender")) {
+                gender = jsonNode.get("gender").asText();
+            }
+            
+            // طباعة البيانات
+            System.out.println("👤 معلومات المريض:");
+            System.out.println("   - العائلة: " + familyName);
+            System.out.println("   - الاسم الأول: " + givenName);
+            
+            // حفظ في قاعدة البيانات
+            Patient patient = new Patient();
+            patient.setFamilyName(familyName);
+            patient.setFirstName(givenName);
+            patient.setGender(gender);
+           
+            
+            Patient savedPatient = patientRepository.save(patient);
+            
+            System.out.println("💾 تم حفظ المريض في قاعدة البيانات!");
+            System.out.println("   - ID في قاعدة البيانات: " + savedPatient.getId());
+            System.out.println("=".repeat(40) + "\n");
+            
+            return Map.of(
+                    "id", savedPatient.getId(),
+                    "status", "created",
+                    "message", "Patient saved successfully"
+                );
+                
+            } catch (Exception e) {
+                System.err.println("❌ خطأ في معالجة Patient: " + e.getMessage());
+                e.printStackTrace();
+                
+                // لازم ترجع Map حتى في حالة الخطأ
+                return Map.of(
+                    "error", e.getMessage(),
+                    "status", "failed"
+                );
+            }
+    }}
+    

@@ -1,0 +1,16 @@
+package com.example.demo;
+
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import com.example.demo.service.FhirClientService;
+
+
+@SpringBootApplication
+public class FhirApplication {
+
+	public static void main(String[] args) {
+		  FhirClientService clientService = new FhirClientService();
+	        clientService.sendSimplePatient();
+	}
+	
+}

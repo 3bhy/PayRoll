@@ -1,0 +1,23 @@
+package com.example.demo.config;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.jpa.rp.r4.PatientResourceProvider;
+import ca.uhn.fhir.rest.server.RestfulServer;
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class FhirJpaServer extends RestfulServer {
+
+	  @Bean
+	    public ServletRegistrationBean<RestfulServer> fhirServlet(PatientResourceProvider patientProvider) {
+	        RestfulServer server = new RestfulServer(FhirContext.forR4());
+	        server.setResourceProviders(patientProvider);
+
+	        ServletRegistrationBean<RestfulServer> servlet = 
+	            new ServletRegistrationBean<>(server, "/fhir/*");
+	        servlet.setName("FHIRServlet");
+	        return servlet;
+	    }
+}

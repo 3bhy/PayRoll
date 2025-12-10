@@ -1,0 +1,295 @@
+package com.project.demo;
+
+import com.project.demo.controller.ShiftController;
+import com.project.demo.entity.Company;
+import com.project.demo.entity.Shift;
+import com.project.demo.entity.ShiftTime;
+import com.project.demo.model.ShiftModel;
+import com.project.demo.model.ShiftTimeModel;
+import com.project.demo.service.ShiftService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import java.sql.Time;
+import java.time.LocalTime;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class ShiftControllerTest {
+
+	@Mock
+	private ShiftService shiftService;
+
+	@InjectMocks
+	private ShiftController shiftController;
+
+	private Shift shift;
+	private ShiftTime shiftTime;
+
+	private ShiftModel shiftModel;
+	private ShiftTimeModel shiftTimeModel;
+
+	@BeforeEach
+	void setUp() {
+		Company c = new Company();
+		c.setCompanyId(100);
+
+		shift = new Shift();
+		shift.setShiftId(1);
+		shift.setShiftName("Morning Shift");
+		shift.setCompany(c);
+		shiftTime = new ShiftTime();
+		shiftTime.setFromTime(java.sql.Time.valueOf(LocalTime.of(9, 0)));
+		shiftTime.setToTime(java.sql.Time.valueOf(LocalTime.of(17, 0)));
+		shiftTime.setTotalTime(java.sql.Time.valueOf(LocalTime.of(8, 0)));
+
+		shiftModel = new ShiftModel();
+		shiftModel.setShiftName("Morning Shift");
+		shiftModel.setCompany(100);
+
+		shiftTimeModel = new ShiftTimeModel();
+		shiftTimeModel.setFromTime(Time.valueOf(LocalTime.of(9, 0)));
+		shiftTimeModel.setToTime(Time.valueOf(LocalTime.of(17, 0)));
+	}
+
+	// ============ CREATE SHIFT TESTS ============
+
+	@Test
+	void testCreateShift_Success() {
+		when(shiftService.createShift(any(ShiftModel.class))).thenReturn(shift);
+
+		ResponseEntity<Shift> response = shiftController.createShift(shiftModel);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.CREATED, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals(1, response.getBody().getShiftId());
+		assertEquals("Morning Shift", response.getBody().getShiftName());
+		assertEquals(100, response.getBody().getCompany().getCompanyId());
+
+		verify(shiftService, times(1)).createShift(any(ShiftModel.class));
+	}
+
+	@Test
+	void testCreateShift_NullInput() {
+		when(shiftService.createShift(null)).thenReturn(null);
+
+		ResponseEntity<Shift> response = shiftController.createShift(null);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.CREATED, response.getStatusCode());
+		assertNull(response.getBody());
+
+		verify(shiftService, times(1)).createShift(null);
+	}
+
+	// ============ GET SHIFT BY ID TESTS ============
+
+	@Test
+	void testGetShiftById_Success() {
+		when(shiftService.getShiftById(1)).thenReturn(shift);
+
+		ResponseEntity<Shift> response = shiftController.getShiftById(1);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals(1, response.getBody().getShiftId());
+		assertEquals("Morning Shift", response.getBody().getShiftName());
+
+		verify(shiftService, times(1)).getShiftById(1);
+	}
+
+	@Test
+	void testGetShiftById_NotFound() {
+		when(shiftService.getShiftById(999)).thenReturn(null);
+
+		ResponseEntity<Shift> response = shiftController.getShiftById(999);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNull(response.getBody());
+
+		verify(shiftService, times(1)).getShiftById(999);
+	}
+
+	@Test
+	void testGetShiftById_NullId() {
+		ResponseEntity<Shift> response = shiftController.getShiftById(null);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+
+		verify(shiftService, times(1)).getShiftById(null);
+	}
+
+	// ============ GET SHIFTS BY COMPANY ID TESTS ============
+
+	@Test
+	void testGetShiftsByCompanyId_Success() {
+		List<Shift> shifts = Arrays.asList(shift, shift);
+		when(shiftService.getShiftsByCompanyId(100)).thenReturn(shifts);
+
+		ResponseEntity<List<Shift>> response = shiftController.getShiftsByCompanyId(100);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals(2, response.getBody().size());
+		assertEquals(1, response.getBody().get(0).getShiftId());
+
+		verify(shiftService, times(1)).getShiftsByCompanyId(100);
+	}
+
+	@Test
+	void testGetShiftsByCompanyId_NullCompanyId() {
+		List<Shift> allShifts = Arrays.asList(shift, shift);
+		when(shiftService.getShiftsByCompanyId(null)).thenReturn(allShifts);
+
+		ResponseEntity<List<Shift>> response = shiftController.getShiftsByCompanyId(null);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals(2, response.getBody().size());
+
+		verify(shiftService, times(1)).getShiftsByCompanyId(null);
+	}
+
+	@Test
+	void testGetShiftsByCompanyId_EmptyResult() {
+		List<Shift> emptyList = Collections.emptyList();
+		when(shiftService.getShiftsByCompanyId(999)).thenReturn(emptyList);
+
+		ResponseEntity<List<Shift>> response = shiftController.getShiftsByCompanyId(999);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().isEmpty());
+
+		verify(shiftService, times(1)).getShiftsByCompanyId(999);
+	}
+
+	@Test
+	void testGetShiftsByCompanyId_NullResult() {
+		when(shiftService.getShiftsByCompanyId(999)).thenReturn(null);
+
+		ResponseEntity<List<Shift>> response = shiftController.getShiftsByCompanyId(999);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNull(response.getBody());
+
+		verify(shiftService, times(1)).getShiftsByCompanyId(999);
+	}
+
+	// ============ UPDATE SHIFT TESTS ============
+
+	@Test
+	void testUpdateShift_Success() {
+		Shift shiftDetails = new Shift();
+		shiftDetails.setShiftName("Updated Shift Name");
+		ShiftTime shiftTimeDetails = new ShiftTime();
+		shiftTimeDetails.setFromTime(java.sql.Time.valueOf(LocalTime.of(10, 0)));
+		shiftTimeDetails.setToTime(java.sql.Time.valueOf(LocalTime.of(18, 0)));
+
+		Shift updatedShift = new Shift();
+		updatedShift.setShiftId(1);
+		updatedShift.setShiftName("Updated Shift Name");
+		ShiftTime updatedShiftTime = new ShiftTime();
+
+		updatedShiftTime.setFromTime(java.sql.Time.valueOf(LocalTime.of(10, 0)));
+		updatedShiftTime.setToTime(java.sql.Time.valueOf(LocalTime.of(18, 0)));
+
+		when(shiftService.updateShift(eq(1), any(Shift.class))).thenReturn(updatedShift);
+
+		ResponseEntity<Shift> response = shiftController.updateShift(1, shiftDetails);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals(1, response.getBody().getShiftId());
+		assertEquals("Updated Shift Name", response.getBody().getShiftName());
+
+		verify(shiftService, times(1)).updateShift(eq(1), any(Shift.class));
+	}
+
+	@Test
+	void testUpdateShift_NotFound() {
+		Shift shiftDetails = new Shift();
+		when(shiftService.updateShift(eq(999), any(Shift.class))).thenReturn(null);
+
+		ResponseEntity<Shift> response = shiftController.updateShift(999, shiftDetails);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNull(response.getBody());
+
+		verify(shiftService, times(1)).updateShift(eq(999), any(Shift.class));
+	}
+
+	@Test
+	void testUpdateShift_NullShiftDetails() {
+		when(shiftService.updateShift(eq(1), isNull())).thenReturn(null);
+
+		ResponseEntity<Shift> response = shiftController.updateShift(1, null);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNull(response.getBody());
+
+		verify(shiftService, times(1)).updateShift(eq(1), isNull());
+	}
+
+	// ============ DELETE SHIFT TESTS ============
+
+	@Test
+	void testDeleteShift_Success() {
+		doNothing().when(shiftService).deleteShift(1);
+
+		ResponseEntity<Void> response = shiftController.deleteShift(1);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+		assertNull(response.getBody());
+
+		verify(shiftService, times(1)).deleteShift(1);
+	}
+
+	@Test
+	void testDeleteShift_NotFound() {
+		doThrow(new RuntimeException("Shift not found")).when(shiftService).deleteShift(999);
+
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+			shiftController.deleteShift(999);
+		});
+
+		assertEquals("Shift not found", exception.getMessage());
+		verify(shiftService, times(1)).deleteShift(999);
+	}
+
+	@Test
+	void testDeleteShift_NullId() {
+		doNothing().when(shiftService).deleteShift(null);
+
+		ResponseEntity<Void> response = shiftController.deleteShift(null);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+
+		verify(shiftService, times(1)).deleteShift(null);
+	}
+}

@@ -1,0 +1,433 @@
+package com.project.demo;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.project.demo.entity.Employee;
+import com.project.demo.entity.EmployeeSalary;
+import com.project.demo.entity.ShiftTime;
+import com.project.demo.repo.EmployeeRepo;
+import com.project.demo.repo.EmployeeSalaryRepo;
+import com.project.demo.repo.SalesRepo;
+import com.project.demo.repo.ShiftTimeRepo;
+import com.project.demo.repo.shiftTimeAttendanceRepo;
+import com.project.demo.service.EmployeeSalaryService;
+
+
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.Arrays;
+import java.util.Date;
+import java.util.Optional;
+
+@ExtendWith(MockitoExtension.class)
+public class EmployeeSalaryTest {
+
+    @Mock private EmployeeSalaryRepo employeeSalaryRepo;
+    @Mock private EmployeeRepo employeeRepo;
+    @Mock private SalesRepo salesRepo;
+    @Mock private ShiftTimeRepo shiftTimeRepo;
+    @Mock private shiftTimeAttendanceRepo shiftTimeAttendanceRepository;
+
+    @InjectMocks
+    private EmployeeSalaryService employeeSalaryService;
+
+    // ==================== NULL VALUES TESTS ====================
+
+   
+    @Test
+    void testCalculateEmployeeSalary_NullEmployeeId() {
+        Integer employeeId = null;
+        Integer year = 2024;
+        Integer month = 12;
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            employeeSalaryService.calculateEmployeeSalary(employeeId, year, month);
+        });
+        
+    }
+
+  
+    @Test
+    void testCalculateEmployeeSalary_NullYear() {
+        Integer employeeId = 1;
+        Integer year = null;
+        Integer month = 12;
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            employeeSalaryService.calculateEmployeeSalary(employeeId, year, month);
+        });
+        
+    }
+
+    
+    @Test
+    void testCalculateEmployeeSalary_NullMonth() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = null;
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            employeeSalaryService.calculateEmployeeSalary(employeeId, year, month);
+        });
+        
+    }
+
+  
+    @Test
+    void testUpdateSalaryOnAttendanceChange_NullDate() {
+        Integer employeeId = 1;
+        Date attendanceDate = null;
+
+        employeeSalaryService.updateSalaryOnAttendanceChange(employeeId, attendanceDate);
+
+        verify(employeeRepo, never()).findById(anyInt());
+        
+    }
+
+   
+    @Test
+    void testAddSalaryDiscount_NullAmount() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 12;
+        Float discountAmount = null;
+        String reason = "lose";
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            employeeSalaryService.addSalaryDiscount(employeeId, year, month, discountAmount, reason);
+        });
+        
+    }
+
+   
+    @Test
+    void testAddSalaryReward_NullAmount() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 12;
+        Float rewardAmount = null;
+        String reason = "reward";
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            employeeSalaryService.addSalaryReward(employeeId, year, month, rewardAmount, reason);
+        });
+        
+    }
+
+    // ==================== WRONG DATA TESTS ====================
+
+   
+    @Test
+    void testCalculateEmployeeSalary_MonthLessThan1() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 0;
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            employeeSalaryService.calculateEmployeeSalary(employeeId, year, month);
+        });
+        
+    }
+
+   
+    @Test
+    void testCalculateEmployeeSalary_MonthGreaterThan12() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 13; 
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            employeeSalaryService.calculateEmployeeSalary(employeeId, year, month);
+        });
+        
+    }
+
+    
+  
+   
+
+   
+    @Test
+    void testAddSalaryDiscount_NegativeAmount() {
+        // 
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 12;
+        Float discountAmount = -500.0f; 
+        String reason = "lose";
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            employeeSalaryService.addSalaryDiscount(employeeId, year, month, discountAmount, reason);
+        });
+        
+    }
+
+    @Test
+    void testAddSalaryReward_NegativeAmount() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 12;
+        Float rewardAmount = -1000.0f; 
+        String reason = "reward";
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            employeeSalaryService.addSalaryReward(employeeId, year, month, rewardAmount, reason);
+        });
+        
+    }
+
+   
+   
+
+    
+    @Test
+    void testCalculateBaseSalary_NullSalaryCycle() {
+        try {
+            Employee employee = new Employee();
+            employee.setEmployeeId(1);
+            employee.setSalary(5000.0f);
+            employee.setSalaryCycle(null); 
+
+            java.lang.reflect.Method method = employeeSalaryService.getClass()
+                    .getDeclaredMethod("calculateBaseSalary", Employee.class, Integer.class, Integer.class);
+
+            method.setAccessible(true);
+
+            Float result = (Float) method.invoke(employeeSalaryService, employee, 1, null);
+
+            assertNotNull(result);
+            System.out.println("Base salary calculated: " + result);
+
+        } catch (Exception e) {
+            fail("Exception thrown: " + e.getMessage());
+        }
+    }
+
+
+
+    // ==================== EMPTY/INVALID DATA TESTS ====================
+
+   
+    @Test
+    void testCreateEmployeeSalary_EmptyEmployeeData() {
+        Employee employee = new Employee();
+        employee.setEmployeeId(1);
+        employee.setSalary(null); 
+        employee.setSalaryCycle(null); 
+
+       
+        assertNull(employee.getSalary());
+        assertNull(employee.getSalaryCycle());
+        
+    }
+
+  
+    @Test
+    void testCalculateEmployeeSalary_ZeroSalary() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 12;
+        
+        Employee employee = new Employee();
+        employee.setEmployeeId(employeeId);
+        employee.setSalary(0.0f); 
+        employee.setSalaryCycle("DAY");
+        
+        when(employeeRepo.findById(employeeId)).thenReturn(Optional.of(employee));
+        when(shiftTimeRepo.findDistinctDayIndexByEmployeeId(employeeId)).thenReturn(java.util.Arrays.asList(1, 2, 3));
+        when(employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month))
+            .thenReturn(Optional.empty());
+        when(employeeSalaryRepo.save(any(EmployeeSalary.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeSalary result = employeeSalaryService.calculateEmployeeSalary(employeeId, year, month);
+
+        assertNotNull(result);
+        
+    }
+
+   
+    @Test
+    void testUpdateBaseSalary_NegativeSalary() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 12;
+        Float newBaseSalary = -1000.0f; 
+        
+        assertThrows(IllegalArgumentException.class, () -> {
+            employeeSalaryService.updateBaseSalary(employeeId, year, month, newBaseSalary);
+        });
+        
+    }
+
+   
+   
+
+   
+    @Test
+    void testAddSalaryDiscount_NullReason() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 12;
+        Float discountAmount = 500.0f;
+        String reason = null; 
+        
+        EmployeeSalary existingSalary = new EmployeeSalary();
+        existingSalary.setEmployeeId(employeeId);
+        
+        when(employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month))
+            .thenReturn(Optional.of(existingSalary));
+        when(employeeSalaryRepo.save(any(EmployeeSalary.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeSalary result = employeeSalaryService.addSalaryDiscount(employeeId, year, month, discountAmount, reason);
+
+        assertNull(result.getDiscountReason());
+        
+    }
+
+    // ========================================
+
+   
+   
+
+    
+     
+    @Test
+    void testPaySalaryDirect_Overpayment() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 12;
+        Float amountPaid = 10000.0f;
+        
+        EmployeeSalary existingSalary = new EmployeeSalary();
+        existingSalary.setEmployeeId(employeeId);
+        existingSalary.setFinalSalary(5000.0f); 
+        existingSalary.setSalaryLocked(false);
+        
+        when(employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month))
+            .thenReturn(Optional.of(existingSalary));
+        when(employeeSalaryRepo.save(any(EmployeeSalary.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeSalary result = employeeSalaryService.paySalaryDirect(employeeId, year, month, amountPaid);
+
+        assertEquals(amountPaid, result.getSalaryAmountPaid());
+        assertTrue(result.getSalaryDifference() < 0); 
+        
+    }
+
+   
+    @Test
+    void testPaySalaryDirect_MultiplePayments() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 12;
+        
+        EmployeeSalary existingSalary = new EmployeeSalary();
+        existingSalary.setEmployeeId(employeeId);
+        existingSalary.setFinalSalary(10000.0f);
+        existingSalary.setSalaryAmountPaid(3000.0f);
+        existingSalary.setSalaryLocked(false);
+        
+        when(employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month))
+            .thenReturn(Optional.of(existingSalary));
+        when(employeeSalaryRepo.save(any(EmployeeSalary.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeSalary result = employeeSalaryService.paySalaryDirect(employeeId, year, month, 4000.0f);
+
+        assertEquals(7000.0f, result.getSalaryAmountPaid());
+        
+    }
+    
+    @Test
+    void testPaySalaryDirect_SalaryLocked() {
+        Integer employeeId = 1;
+        Integer year = 2024;
+        Integer month = 12;
+        Float amountPaid = 1000.0f;
+        
+        EmployeeSalary lockedSalary = new EmployeeSalary();
+        lockedSalary.setEmployeeId(employeeId);
+        lockedSalary.setSalaryLocked(true);
+        
+        when(employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month))
+            .thenReturn(Optional.of(lockedSalary));
+
+        assertThrows(RuntimeException.class, () -> {
+            employeeSalaryService.paySalaryDirect(employeeId, year, month, amountPaid);
+        });
+    }
+    
+    
+    @Test
+    void testCalculateBaseSalary_DayCycle() {
+        try {
+            Employee employee = new Employee();
+            employee.setEmployeeId(1);
+            employee.setSalary(5000.0f);
+            employee.setSalaryCycle("DAY");
+            
+            when(shiftTimeRepo.findDistinctDayIndexByEmployeeId(1))
+                .thenReturn(Arrays.asList(1, 2, 3, 4, 5)); 
+            
+            java.lang.reflect.Method method = employeeSalaryService.getClass()
+                    .getDeclaredMethod("calculateBaseSalary", Employee.class, Integer.class, Integer.class);
+            method.setAccessible(true);
+            
+            Float result = (Float) method.invoke(employeeSalaryService, employee, 2024, 12);
+            
+            assertEquals(100000.0f, result);
+        } catch (Exception e) {
+            fail("Exception thrown: " + e.getMessage());
+        }
+    }
+
+    @Test
+    void testCalculateIncentive_WithAllSales() {
+        try {
+            Integer employeeId = 1;
+            Integer year = 2024;
+            Integer month = 12;
+            
+            Employee employee = new Employee();
+            employee.setEmployeeId(employeeId);
+            employee.setSalesIncentivePercent(10.0f);
+            employee.setIncentiveOnAllSales(true);
+            
+            ShiftTime mockShiftTime = mock(ShiftTime.class);
+            
+            when(mockShiftTime.getFromTime()).thenReturn(java.sql.Time.valueOf("09:00:00"));
+            when(mockShiftTime.getToTime()).thenReturn(java.sql.Time.valueOf("17:00:00"));
+            
+          
+            when(shiftTimeRepo.findShiftTimeByEmployeeIdNative(employeeId))
+                .thenReturn(Optional.of(mockShiftTime));
+            
+            when(salesRepo.calculateAllSalesDuringShiftHours(
+                eq(year), 
+                eq(month), 
+                anyString(),  
+                anyString()
+            )).thenReturn(50000.0f);
+            
+            java.lang.reflect.Method method = employeeSalaryService.getClass()
+                    .getDeclaredMethod("calculateIncentive", Employee.class, Integer.class, Integer.class);
+            method.setAccessible(true);
+            
+            Float incentive = (Float) method.invoke(employeeSalaryService, employee, year, month);
+            
+            assertNotNull(incentive, "Incentive should not be null");
+            assertEquals(5000.0f, incentive, 0.01, "Incentive should be 10% of 50000");
+            
+            System.out.println("✓ testCalculateIncentive_WithAllSales passed!");
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Test failed: " + e.toString());
+        }
+    }
+
+}

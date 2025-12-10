@@ -1,0 +1,124 @@
+package com.project.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import jakarta.annotation.PostConstruct;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Patient;
+import org.springframework.stereotype.Service;
+
+@Service
+public class FhirService {
+    private IGenericClient client;
+    
+    @PostConstruct
+    public void initClient() {
+        System.out.println("🎯 تهيئة عميل FHIR...");
+        
+        try {
+            // 1. استخدام FhirContext للإصدار R4
+            FhirContext ctx = FhirContext.forR4();
+            
+            // 2. استخدام سيرفر HAPI FHIR العام
+            String serverBase = "http://hapi.fhir.org/baseR4";
+            System.out.println("📡 الاتصال بـ: " + serverBase);
+            
+            // 3. إنشاء العميل
+            this.client = ctx.newRestfulGenericClient(serverBase);
+            
+            // 4. إعداد مهلات قصيرة للاختبار
+            ctx.getRestfulClientFactory().setConnectTimeout(10 * 1000);
+            ctx.getRestfulClientFactory().setSocketTimeout(10 * 1000);
+            
+            System.out.println("✅ تم تهيئة عميل FHIR بنجاح!");
+            
+        } catch (Exception e) {
+            System.err.println("❌ خطأ في التهيئة: " + e.getMessage());
+        }
+    }
+    
+    public void testSearch() {
+        if (client == null) {
+            System.err.println("⚠️  العميل غير مهيئ!");
+            return;
+        }
+        
+        try {
+            System.out.println("\n🔍 بدء اختبار البحث...");
+            
+            // بحث بسيط جداً
+            Bundle results = client.search()
+                .forResource(Patient.class)
+                .count(2) // فقط نتيجتين
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            int count = results.getEntry().size();
+            System.out.println("✅ نجح البحث! عدد النتائج: " + count);
+            
+            if (count > 0) {
+                System.out.println("\n📋 النتائج:");
+                for (Bundle.BundleEntryComponent entry : results.getEntry()) {
+                    if (entry.getResource() instanceof Patient) {
+                        Patient patient = (Patient) entry.getResource();
+                        
+                        // معلومات أساسية
+                        String id = extractId(patient.getIdElement().getIdPart());
+                        
+                        // الاسم
+                        String name = "غير معروف";
+                        if (patient.hasName() && !patient.getName().isEmpty()) {
+                            String given = patient.getNameFirstRep().getGivenAsSingleString();
+                            String family = patient.getNameFirstRep().getFamily();
+                            name = (given != null ? given + " " : "") + (family != null ? family : "");
+                        }
+                        
+                        System.out.println("   - ID: " + id + " | الاسم: " + name.trim());
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            System.err.println("\n❌ فشل البحث: " + e.getMessage());
+            
+            // إذا كان خطأ 404، جرب سيرفراً مختلفاً
+            if (e.getMessage().contains("404")) {
+                System.out.println("\n💡 جرب سيرفر SmartHealthIT...");
+                trySmartHealthIT();
+            }
+        }
+    }
+    
+    private String extractId(String fullId) {
+        if (fullId.contains("/")) {
+            return fullId.substring(fullId.lastIndexOf("/") + 1);
+        }
+        return fullId;
+    }
+    
+    private void trySmartHealthIT() {
+        try {
+            System.out.println("🔄 محاولة سيرفر SmartHealthIT...");
+            
+            FhirContext ctx = FhirContext.forR4();
+            String serverBase = "https://r4.smarthealthit.org";
+            
+            this.client = ctx.newRestfulGenericClient(serverBase);
+            
+            // اختبار بسيط
+            Bundle results = client.search()
+                .forResource(Patient.class)
+                .count(1)
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            System.out.println("✅ نجح الاتصال! عدد النتائج: " + results.getEntry().size());
+            
+        } catch (Exception e) {
+            System.err.println("❌ فشل الاتصال بالسيرفر البديل: " + e.getMessage());
+            System.out.println("\n💡 الحل: تشغيل سيرفر محلي");
+            System.out.println("   docker run -p 8080:8080 hapiproject/hapi:v6.3.0");
+            System.out.println("   ثم استخدم: http://localhost:8080/fhir");
+        }
+    }
+}

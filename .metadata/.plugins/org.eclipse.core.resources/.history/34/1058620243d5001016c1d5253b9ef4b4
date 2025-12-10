@@ -1,0 +1,55 @@
+package com.example.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import org.hl7.fhir.instance.model.api.IIdType;
+import org.hl7.fhir.r4.model.Patient;
+import org.springframework.stereotype.Service;
+
+@Service
+public class FhirClientService {
+
+    private final FhirContext ctx = FhirContext.forR4();
+    private final IGenericClient client = ctx.newRestfulGenericClient("http://localhost:8080/fhir");
+
+    // إنشاء Patient جديد
+    public MethodOutcome sendSimplePatient() {
+
+        Patient patient = new Patient();
+        patient.addIdentifier()
+                .setSystem("http://example.org/mrn")
+                .setValue("14253");
+
+        patient.addName()
+                .setFamily("Ahmed")
+                .addGiven("Ali");
+
+        // إرسال الـ Patient للسيرفر
+        MethodOutcome outcome = client.create()
+                .resource(patient)
+                .execute();
+
+        // طباعة الـ ID الذي ولده السيرفر (logical id)
+        String logicalId = outcome.getId().getIdPart();
+        System.out.println("Created Patient Logical ID: " + logicalId);
+
+        return outcome;
+    }
+
+    // قراءة Patient باستخدام ID
+    public void readPatient(IIdType patientId) {
+
+        // الحصول على الـ Logical ID فقط بدون _history
+        String logicalId = patientId.getIdPart();
+
+        Patient patient = client.read()
+                .resource(Patient.class)
+                .withId("1003")
+                .execute();
+
+        System.out.println("Patient ID: " + patient.getId());
+        System.out.println("Family: " + patient.getNameFirstRep().getFamily());
+        System.out.println("Given: " + patient.getNameFirstRep().getGivenAsSingleString());
+    }
+}

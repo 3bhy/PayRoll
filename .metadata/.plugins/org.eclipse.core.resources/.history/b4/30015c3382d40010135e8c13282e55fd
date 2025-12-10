@@ -1,0 +1,30 @@
+package com.example.demo.controller;
+
+import com.example.demo.entity.Patient;
+import com.example.demo.repo.PatientRepo;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/patient")
+public class PatientController {
+
+    @Autowired
+    private PatientRepo repo;  // حقن الـ repo بطريقة تقليدية بدل Lombok
+
+    @PostMapping
+    public String receivePatient(@RequestBody Patient patient) {
+
+        System.out.println("=== Received Patient From FHIR Client ===");
+        System.out.println("ID: " + patient.getId());
+        System.out.println("Name: " + patient.getFirstName());
+        System.out.println("Family: " + patient.getFamilyName());
+        System.out.println("Gender: " + patient.getGender());
+        System.out.println("=========================================");
+
+        // حفظ في DB
+        repo.save(patient);
+
+        return "Patient saved!";
+    }
+}

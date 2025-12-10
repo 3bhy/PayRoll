@@ -1,0 +1,17 @@
+package com.example.demo.entity.model;
+
+import lombok.Data;
+
+@Data
+public class PatientModel {
+	 private String id;
+	    private String gender;
+
+	    private java.util.List<Name> name;
+
+	    @Data
+	    public static class Name {
+	        private String family;
+	        private java.util.List<String> given;
+	    }
+	}

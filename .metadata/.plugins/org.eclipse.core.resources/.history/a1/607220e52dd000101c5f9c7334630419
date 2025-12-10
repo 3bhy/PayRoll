@@ -1,0 +1,151 @@
+package com.project.demo.controller;
+
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.project.demo.entity.Login;
+import com.project.demo.entity.Shift;
+import com.project.demo.entity.ShiftTime;
+import com.project.demo.model.LoginModel;
+import com.project.demo.repo.LoginRepo;
+import com.project.demo.service.LoginService;
+
+import jakarta.persistence.EntityNotFoundException;
+
+@RestController
+@RequestMapping("/api")
+public class LoginController {
+
+	@Autowired
+	private LoginService loginService;
+	@Autowired
+	private LoginRepo loginRepository;
+
+	// Lock login
+	@PutMapping("/lock/{employeeId}")
+	public ResponseEntity<?> lockLogin(@PathVariable Integer employeeId) {
+		try {
+			loginService.lockLoginByEmployeeId(employeeId);
+			return ResponseEntity.ok().build();
+	    } catch (EntityNotFoundException e) {
+	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+	    }
+	}
+
+	// CREATE
+	@PostMapping("/addLogin")
+	public ResponseEntity<LoginModel> createLogin(@RequestBody LoginModel loginModel) {
+		Login login = loginService.createLoginIfWasActiveLogin(loginModel);
+		LoginModel createdModel = loginService.convertToModel(login);
+		return ResponseEntity.status(HttpStatus.CREATED).body(createdModel);
+	}
+
+	// GET BY ID
+	@GetMapping("/getLoginsBy/{id}")
+	public ResponseEntity<?> getLoginById(@PathVariable Integer id) {
+		try {
+			Optional<Login> loginOptional = loginService.getLoginById(id);
+             LoginModel loginModel = loginService.convertToModel(loginOptional.get());
+				return ResponseEntity.ok(loginModel);
+			} 
+				
+
+			 catch (EntityNotFoundException e) {
+	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+	    }
+		
+
+		}
+	
+
+	// DELETE
+	@DeleteMapping("/deleteLogins/{id}")
+	public ResponseEntity<Void> deleteLogin(@PathVariable Integer id) {
+		loginService.deleteLogin(id);
+		return ResponseEntity.noContent().build();
+	}
+
+	// Filter by
+	@GetMapping("/searchLogins")
+	public ResponseEntity<List<LoginModel>> getLoginsByFilters(@RequestParam(required = false) Integer employeeId,
+			@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime loginDateTime,
+			@RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime logoutDateTime,
+			@RequestParam(required = false) Boolean logoutStatus, @RequestParam(required = false) Boolean locked) {
+
+		List<Login> logins = loginService.getLoginsByFilters(employeeId, loginDateTime, logoutDateTime, logoutStatus,
+				locked);
+		
+		 if (logins == null) {
+		        logins = Collections.emptyList(); 
+		    }
+		List<LoginModel> loginModels = logins.stream().map(loginService::convertToModel).collect(Collectors.toList());
+		return ResponseEntity.ok(loginModels);
+	}
+
+	// Logout employee by loginID
+	@PutMapping("/logoutByLoginId/{loginId}")
+	public ResponseEntity<LoginModel> logoutByLoginId(@PathVariable Integer loginId) {
+		Login login = loginService.logoutByLoginId(loginId);
+		LoginModel loginModel = loginService.convertToModel(login);
+		return ResponseEntity.ok(loginModel);
+	}
+
+	// getOpenLogins
+	@GetMapping("/openLogins")
+	public ResponseEntity<List<LoginModel>> getOpenLogins() {
+		List<Login> openLogins = loginService.getOpenLogins();
+		List<LoginModel> loginModels = openLogins.stream().map(loginService::convertToModel)
+				.collect(Collectors.toList());
+		return ResponseEntity.ok(loginModels);
+	}
+
+	@PostMapping("/logout/by-employee")
+	public Login logoutByEmployeeId(@RequestParam Integer employeeId) {
+
+	    Login activeLogin = loginRepository.findActiveLogins(employeeId)
+	            .stream()
+	            .findFirst()
+	            .orElseThrow(() ->
+	                    new EntityNotFoundException("No active login found for employee id: " + employeeId));
+
+	    Integer shiftAttendanceId = null;
+
+	    if (activeLogin.getShiftTimeAttendanceId() != null) {
+	        shiftAttendanceId = activeLogin.getShiftTimeAttendanceId().getShiftTimeAttendanceId();
+	    }
+
+	    return loginService.processLogout(employeeId, shiftAttendanceId);
+	}
+
+	
+	// findActiveLoginWithinShift
+	@GetMapping("/active/{employeeId}")
+	public ResponseEntity<?> getActiveLogin(@PathVariable Integer employeeId) {
+		Optional<Login> activeLogin = loginService.findActiveLoginWithinShift(employeeId);
+
+		if (activeLogin.isPresent()) {
+			LoginModel loginModel = loginService.convertToModel(activeLogin.get());
+			lockLogin(employeeId);
+			return ResponseEntity.ok(loginModel);
+		} else {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+					.body(Map.of("message", "No active login found for employee"));
+		}
+	}
+
+	@GetMapping("/getCurrentShift")
+	public ShiftTime getCurrentShift(@RequestParam Integer employeeId) {
+		return loginService.getCurrentShiftTimeForEmployee(employeeId);
+	}
+
+}

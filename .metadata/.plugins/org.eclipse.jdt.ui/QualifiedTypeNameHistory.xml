@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<qualifiedTypeNameHistroy>
+    <fullyQualifiedTypeName name="java.util.Map"/>
+    <fullyQualifiedTypeName name="jakarta.servlet.http.HttpServletRequest"/>
+    <fullyQualifiedTypeName name="lombok.Data"/>
+    <fullyQualifiedTypeName name="org.springframework.http.ResponseEntity"/>
+    <fullyQualifiedTypeName name="com.example.demo.entity.Patient"/>
+    <fullyQualifiedTypeName name="com.example.demo.entity.model.PatientModel"/>
+    <fullyQualifiedTypeName name="com.example.demo.service.FhirClientService"/>
+    <fullyQualifiedTypeName name="ca.uhn.fhir.rest.annotation.Read"/>
+    <fullyQualifiedTypeName name="ca.uhn.fhir.rest.annotation.IdParam"/>
+    <fullyQualifiedTypeName name="ca.uhn.fhir.jpa.provider.JpaSystemProvider"/>
+    <fullyQualifiedTypeName name="java.util.List"/>
+    <fullyQualifiedTypeName name="ca.uhn.fhir.rest.server.IResourceProvider"/>
+    <fullyQualifiedTypeName name="jakarta.persistence.EntityManagerFactory"/>
+    <fullyQualifiedTypeName name="org.springframework.transaction.PlatformTransactionManager"/>
+    <fullyQualifiedTypeName name="ca.uhn.fhir.jpa.api.config.JpaStorageSettings"/>
+    <fullyQualifiedTypeName name="ca.uhn.fhir.jpa.api.dao.DaoRegistry"/>
+    <fullyQualifiedTypeName name="java.util.stream.Collectors"/>
+    <fullyQualifiedTypeName name="org.hl7.fhir.instance.model.api.IIdType"/>
+    <fullyQualifiedTypeName name="ca.uhn.fhir.rest.api.MethodOutcome"/>
+    <fullyQualifiedTypeName name="ca.uhn.fhir.rest.server.RestfulServer"/>
+    <fullyQualifiedTypeName name="org.springframework.boot.autoconfigure.SpringBootApplication"/>
+    <fullyQualifiedTypeName name="org.springframework.boot.SpringApplication"/>
+    <fullyQualifiedTypeName name="org.springframework.context.annotation.Bean"/>
+    <fullyQualifiedTypeName name="org.springframework.boot.web.servlet.ServletRegistrationBean"/>
+    <fullyQualifiedTypeName name="java.util.HashMap"/>
+</qualifiedTypeNameHistroy>

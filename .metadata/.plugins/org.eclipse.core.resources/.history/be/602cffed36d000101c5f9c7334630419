@@ -1,0 +1,382 @@
+package com.project.demo;
+import com.project.demo.controller.EmShiftController;
+import com.project.demo.entity.Employee;
+import com.project.demo.entity.EmployeeShift;
+import com.project.demo.model.EmployeeShiftModel;
+import com.project.demo.service.EmployeeShiftService;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import java.sql.Date;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class EmployeeShiftControllerTest {
+	 private Employee e;
+
+
+@BeforeEach
+void setUp() {
+    e = new Employee();
+    e.setEmployeeId(100);
+}
+    @Mock
+    private EmployeeShiftService employeeShiftService;
+
+    @InjectMocks
+    private EmShiftController emShiftController;
+
+    
+   
+ 
+     // ============ CREATE EMPLOYEE SHIFT TESTS ============
+  
+    @Test
+    void testCreateEmployeeShift_Success() {
+        EmployeeShiftModel shiftModel = new EmployeeShiftModel();
+        shiftModel.setEmployeeId(100);
+        shiftModel.setActive(true);
+       
+        EmployeeShift createdShift = new EmployeeShift();
+        createdShift.setEmployeeShiftId(1);
+        createdShift.setEmployee(e);
+        createdShift.setActive(true);
+
+        when(employeeShiftService.createShift(any(EmployeeShiftModel.class))).thenReturn(createdShift);
+
+        ResponseEntity<?> response = emShiftController.createEmployeeShift(shiftModel);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, ((EmployeeShift) response.getBody()).getEmployeeShiftId());
+        assertEquals(100, response.getBody().getEmployee());
+        assertTrue(((EmployeeShift) response.getBody()).getActive());
+
+        verify(employeeShiftService, times(1)).createShift(any(EmployeeShiftModel.class));
+    }
+
+    @Test
+    void testCreateEmployeeShift_NullInput() {
+        ResponseEntity<?> response = emShiftController.createEmployeeShift(null);
+
+        assertNotNull(response);
+      
+        verify(employeeShiftService, times(1)).createShift(null);
+    }
+
+    @Test
+    void testCreateEmployeeShift_ServiceThrowsException() {
+        EmployeeShiftModel shiftModel = new EmployeeShiftModel();
+        when(employeeShiftService.createShift(any(EmployeeShiftModel.class)))
+                .thenThrow(new RuntimeException("Database error"));
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            emShiftController.createEmployeeShift(shiftModel);
+        });
+
+        assertEquals("Database error", exception.getMessage());
+        verify(employeeShiftService, times(1)).createShift(any(EmployeeShiftModel.class));
+    }
+
+    // ============ GET EMPLOYEE SHIFT BY ID TESTS ============
+
+    @Test
+    void testGetEmployeeShiftById_Success() {
+        
+        EmployeeShift shift = new EmployeeShift();
+        shift.setEmployeeShiftId(1);
+        shift.setEmployee(e);
+        shift.setActive(true);
+
+        when(employeeShiftService.getEmployeeShiftById(1)).thenReturn(shift);
+
+        ResponseEntity<?> response = emShiftController.getEmployeeShiftById(1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, ((EmployeeShift) response.getBody()).getEmployeeShiftId());
+        assertEquals(100, response.getBody().getEmployee());
+        assertTrue(((EmployeeShift) response.getBody()).getActive());
+
+        verify(employeeShiftService, times(1)).getEmployeeShiftById(1);
+    }
+
+    @Test
+    void testGetEmployeeShiftById_NotFound() {
+        when(employeeShiftService.getEmployeeShiftById(999)).thenReturn(null);
+
+        ResponseEntity<?> response = emShiftController.getEmployeeShiftById(999);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNull(response.getBody());
+
+        verify(employeeShiftService, times(1)).getEmployeeShiftById(999);
+    }
+
+    @Test
+    void testGetEmployeeShiftById_NullId() {
+        ResponseEntity<?> response = emShiftController.getEmployeeShiftById(null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        verify(employeeShiftService, times(1)).getEmployeeShiftById(null);
+    }
+
+    // ============ UPDATE EMPLOYEE SHIFT TESTS ============
+
+    @Test
+    void testUpdateEmployeeShift_Success() {
+        EmployeeShift shiftDetails = new EmployeeShift();
+        shiftDetails.setEmployee(e);
+        shiftDetails.setActive(false);
+        shiftDetails.setStartActiveDate(Date.valueOf("2024-01-01"));
+        shiftDetails.setEndActiveDate(Date.valueOf("2024-12-31"));
+
+        EmployeeShift updatedShift = new EmployeeShift();
+        updatedShift.setEmployeeShiftId(1);
+        updatedShift.setEmployee(e);
+        updatedShift.setActive(false);
+        updatedShift.setStartActiveDate(Date.valueOf("2024-01-01"));
+        updatedShift.setEndActiveDate(Date.valueOf("2024-12-31"));
+
+        when(employeeShiftService.updateEmployeeShift(eq(1), any(EmployeeShift.class)))
+                .thenReturn(updatedShift);
+
+        ResponseEntity<?> response = emShiftController.updateEmployeeShift(1, shiftDetails);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, ((EmployeeShift) response.getBody()).getEmployeeShiftId());
+        assertFalse(((EmployeeShift) response.getBody()).getActive());
+        assertEquals(Date.valueOf("2024-01-01"), ((EmployeeShift) response.getBody()).getStartActiveDate());
+
+        verify(employeeShiftService, times(1)).updateEmployeeShift(eq(1), any(EmployeeShift.class));
+    }
+
+    @Test
+    void testUpdateEmployeeShift_NotFound() {
+        EmployeeShift shiftDetails = new EmployeeShift();
+        when(employeeShiftService.updateEmployeeShift(eq(999), any(EmployeeShift.class)))
+                .thenReturn(null);
+
+        ResponseEntity<?> response = emShiftController.updateEmployeeShift(999, shiftDetails);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNull(response.getBody());
+
+        verify(employeeShiftService, times(1)).updateEmployeeShift(eq(999), any(EmployeeShift.class));
+    }
+
+    @Test
+    void testUpdateEmployeeShift_NullShiftDetails() {
+        ResponseEntity<?> response = emShiftController.updateEmployeeShift(1, null);
+
+        assertNotNull(response);
+        verify(employeeShiftService, times(1)).updateEmployeeShift(eq(1), isNull());
+    }
+
+    @Test
+    void testUpdateEmployeeShift_PartialUpdate() {
+        EmployeeShift shiftDetails = new EmployeeShift();
+        shiftDetails.setActive(false); 
+
+        EmployeeShift updatedShift = new EmployeeShift();
+        updatedShift.setEmployeeShiftId(1);
+        updatedShift.setEmployee(e); 
+        updatedShift.setActive(false); 
+        updatedShift.setStartActiveDate(Date.valueOf("2024-01-01")); 
+
+        when(employeeShiftService.updateEmployeeShift(eq(1), any(EmployeeShift.class)))
+                .thenReturn(updatedShift);
+
+        ResponseEntity<?> response = emShiftController.updateEmployeeShift(1, shiftDetails);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertFalse(((EmployeeShift) response.getBody()).getActive());
+
+        verify(employeeShiftService, times(1)).updateEmployeeShift(eq(1), any(EmployeeShift.class));
+    }
+
+    // ============ DELETE EMPLOYEE SHIFT TESTS ============
+
+    @Test
+    void testDeleteEmployeeShift_Success() {
+        doNothing().when(employeeShiftService).deleteShifts(1);
+
+        ResponseEntity<?> response = emShiftController.deleteEmployeeShift(1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        assertNull(response.getBody());
+
+        verify(employeeShiftService, times(1)).deleteShifts(1);
+    }
+
+    @Test
+    void testDeleteEmployeeShift_NotFound() {
+        doThrow(new RuntimeException("Shift not found")).when(employeeShiftService).deleteShifts(999);
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            emShiftController.deleteEmployeeShift(999);
+        });
+
+        assertEquals("Shift not found", exception.getMessage());
+        verify(employeeShiftService, times(1)).deleteShifts(999);
+    }
+
+    @Test
+    void testDeleteEmployeeShift_NullId() {
+        doNothing().when(employeeShiftService).deleteShifts(null);
+
+        ResponseEntity<?> response = emShiftController.deleteEmployeeShift(null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+
+        verify(employeeShiftService, times(1)).deleteShifts(null);
+    }
+
+    // ============ GET SHIFTS BY FILTERS TESTS ============
+
+    @Test
+    void testGetShiftsByFilters_AllFilters() {
+        Date startDate = Date.valueOf("2024-01-01");
+        Date endDate = Date.valueOf("2024-12-31");
+        
+        EmployeeShift shift1 = new EmployeeShift();
+        shift1.setEmployeeShiftId(1);
+        shift1.setEmployee(e);
+        shift1.setActive(true);
+        
+        EmployeeShift shift2 = new EmployeeShift();
+        shift2.setEmployeeShiftId(2);
+        shift2.setEmployee(e);
+        shift2.setActive(true);
+        
+        List<EmployeeShift> shifts = Arrays.asList(shift1, shift2);
+
+        when(employeeShiftService.getShiftsByIdAndFilters(100, true, startDate, endDate, 1))
+                .thenReturn(shifts);
+
+        ResponseEntity<List<EmployeeShift>> response = emShiftController.getShiftsByFilters(
+                100, true, startDate, endDate, 1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(2, response.getBody().size());
+        assertEquals(1, response.getBody().get(0).getEmployeeShiftId());
+
+        verify(employeeShiftService, times(1))
+                .getShiftsByIdAndFilters(100, true, startDate, endDate, 1);
+    }
+
+    @Test
+    void testGetShiftsByFilters_SomeFiltersNull() {
+        Date startDate = Date.valueOf("2024-01-01");
+        
+        EmployeeShift shift = new EmployeeShift();
+        shift.setEmployeeShiftId(1);
+        shift.setEmployee(e);
+        
+        List<EmployeeShift> shifts = Arrays.asList(shift);
+
+        when(employeeShiftService.getShiftsByIdAndFilters(100, null, startDate, null, null))
+                .thenReturn(shifts);
+
+        ResponseEntity<List<EmployeeShift>> response = emShiftController.getShiftsByFilters(
+                100, null, startDate, null, null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+
+        verify(employeeShiftService, times(1))
+                .getShiftsByIdAndFilters(100, null, startDate, null, null);
+    }
+
+    @Test
+    void testGetShiftsByFilters_AllFiltersNull() {
+        EmployeeShift shift = new EmployeeShift();
+        shift.setEmployeeShiftId(1);
+        
+        List<EmployeeShift> shifts = Arrays.asList(shift);
+
+        when(employeeShiftService.getShiftsByIdAndFilters(null, null, null, null, null))
+                .thenReturn(shifts);
+
+        ResponseEntity<List<EmployeeShift>> response = emShiftController.getShiftsByFilters(
+                null, null, null, null, null);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+
+        verify(employeeShiftService, times(1))
+                .getShiftsByIdAndFilters(null, null, null, null, null);
+    }
+
+    @Test
+    void testGetShiftsByFilters_EmptyResult() {
+        Date startDate = Date.valueOf("2024-01-01");
+        Date endDate = Date.valueOf("2024-12-31");
+        
+        List<EmployeeShift> emptyList = Arrays.asList();
+
+        when(employeeShiftService.getShiftsByIdAndFilters(999, true, startDate, endDate, 1))
+                .thenReturn(emptyList);
+
+        ResponseEntity<List<EmployeeShift>> response = emShiftController.getShiftsByFilters(
+                999, true, startDate, endDate, 1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isEmpty());
+
+        verify(employeeShiftService, times(1))
+                .getShiftsByIdAndFilters(999, true, startDate, endDate, 1);
+    }
+
+   
+    @Test
+    void testGetShiftsByFilters_InvalidDateRange() {
+        Date startDate = Date.valueOf("2024-12-31"); 
+        Date endDate = Date.valueOf("2024-01-01");  
+        
+        when(employeeShiftService.getShiftsByIdAndFilters(100, true, startDate, endDate, 1))
+                .thenReturn(Arrays.asList());
+
+        ResponseEntity<List<EmployeeShift>> response = emShiftController.getShiftsByFilters(
+                100, true, startDate, endDate, 1);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        verify(employeeShiftService, times(1))
+                .getShiftsByIdAndFilters(100, true, startDate, endDate, 1);
+    }
+    
+}

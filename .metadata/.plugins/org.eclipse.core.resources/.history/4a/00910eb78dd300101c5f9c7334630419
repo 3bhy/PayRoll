@@ -1,0 +1,96 @@
+package com.project.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import jakarta.annotation.PostConstruct;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CapabilityStatement;
+import org.hl7.fhir.r4.model.Patient;
+import org.springframework.stereotype.Service;
+
+@Service
+public class FhirService {
+
+    private IGenericClient client;
+    private String activeServer;
+
+    @PostConstruct
+    public void initClient() {
+        System.out.println("Initializing FHIR client...");
+
+        String[] servers = {
+            "https://r4.smarthealthit.org",
+            "https://hapi.fhir.org/baseR4",
+            "http://hapi.fhir.org/baseR4"
+        };
+
+        for (String server : servers) {
+            if (tryConnect(server)) {
+                this.activeServer = server;
+                break;
+            }
+        }
+
+        if (client == null) {
+            System.err.println("No FHIR server could be reached.");
+        }
+    }
+
+    private boolean tryConnect(String serverBase) {
+        try {
+            System.out.println("Trying server: " + serverBase);
+
+            FhirContext ctx = FhirContext.forR4();
+            ctx.getRestfulClientFactory().setConnectTimeout(5000);
+            ctx.getRestfulClientFactory().setSocketTimeout(5000);
+
+            IGenericClient tmpClient = ctx.newRestfulGenericClient(serverBase);
+
+            // Simple test
+            tmpClient.search()
+                    .forResource(Patient.class)
+                    .count(1)
+                    .returnBundle(Bundle.class)
+                    .execute();
+
+            this.client = tmpClient;
+
+            System.out.println("Connected successfully to: " + serverBase);
+            return true;
+
+        } catch (Exception e) {
+            System.err.println("Failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public Bundle searchPatients() {
+        return client.search()
+                .forResource(Patient.class)
+                .count(10)
+                .returnBundle(Bundle.class)
+                .execute();
+    }
+
+    public Bundle searchByFamily(String family) {
+        return client.search()
+                .forResource(Patient.class)
+                .where(Patient.FAMILY.matches().value(family))
+                .count(20)
+                .returnBundle(Bundle.class)
+                .execute();
+    }
+
+    public Patient getPatient(String id) {
+        return client.read()
+                .resource(Patient.class)
+                .withId(id)
+                .execute();
+    }
+
+    public CapabilityStatement getServerInfo() {
+        return client.capabilities()
+                .ofType(CapabilityStatement.class)
+                .execute();
+    }
+}

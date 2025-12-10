@@ -1,0 +1,58 @@
+package com.example.demo.config;
+
+import ca.uhn.fhir.rest.server.IResourceProvider;
+import ca.uhn.fhir.rest.annotation.Create;
+import ca.uhn.fhir.rest.annotation.IdParam;
+import ca.uhn.fhir.rest.annotation.Read;
+import ca.uhn.fhir.rest.annotation.ResourceParam;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.IdType;
+import org.springframework.stereotype.Component;
+import ca.uhn.fhir.rest.gclient.StringClientParam;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Enumerations;
+
+
+@Component
+public class PatientResourceProvider implements IResourceProvider {
+
+    @Override
+    public Class<Patient> getResourceType() {
+        return Patient.class;
+    }
+
+    @Create
+    public MethodOutcome createPatient(@ResourceParam Patient patient) {
+        System.out.println("=== Received Patient ===");
+        System.out.println("ID: " + patient.getId());
+        if (!patient.getName().isEmpty()) {
+            System.out.println("Family: " + patient.getName().get(0).getFamily());
+            System.out.println("Given: " + patient.getName().get(0).getGivenAsSingleString());
+        }
+        System.out.println("Gender: " + patient.getGender());
+        System.out.println("=======================");
+
+        MethodOutcome outcome = new MethodOutcome();
+        outcome.setId(new IdType("Patient", "1"));
+        outcome.setCreated(true);
+        return outcome;
+    }
+    @Read
+    public Patient readPatient(@IdParam IdType theId) {
+        System.out.println("Reading patient with ID: " + theId.getValue());
+
+        // مثال Patient ثابت
+        Patient patient = new Patient();
+        patient.setId(theId.getIdPart());
+        patient.addIdentifier().setSystem("http://example.org/mrn").setValue("12345");
+        patient.addName().setFamily("Smith").addGiven("John");
+        patient.setGender(Enumerations.AdministrativeGender.MALE);
+
+        return patient;
+    }
+
+    
+    
+}

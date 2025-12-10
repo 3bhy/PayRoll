@@ -1,0 +1,54 @@
+package com.example.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+
+import org.hl7.fhir.instance.model.api.IIdType;
+import org.hl7.fhir.r4.model.*;
+import org.springframework.stereotype.Service;
+
+@Service
+public class FhirClientService {
+
+    public void sendSimplePatient() {
+
+        // Create context + client
+        FhirContext ctx = FhirContext.forR4();
+        IGenericClient client = ctx.newRestfulGenericClient("http://localhost:8080/fhir");
+
+        // Build Patient
+        Patient patient = new Patient();
+        patient.addIdentifier()
+                .setSystem("http://example.org/mrn")
+                .setValue("14253");
+
+        patient.addName()
+                .setFamily("Ahmed")
+                .addGiven("ali");
+
+       
+     
+        
+        
+      
+    
+    }
+    
+    public void readPatient() {
+    	  
+        FhirContext ctx = FhirContext.forR4();
+        IGenericClient client = ctx.newRestfulGenericClient("http://localhost:8080/fhir");
+
+        // قراءة Patient بالـ ID
+        Patient patient = client.read()
+                .resource(Patient.class)
+                .withId("2")   
+                .execute();
+
+        System.out.println("Patient ID: " + patient.getId());
+        System.out.println("Family: " + patient.getName().get(0).getFamily());
+        System.out.println("Given: " + patient.getName().get(0).getGivenAsSingleString());
+
+	}
+}

@@ -1,0 +1,31 @@
+package com.example.demo.config;
+
+import ca.uhn.fhir.rest.annotation.Create;
+import ca.uhn.fhir.rest.annotation.ResourceParam;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.server.IResourceProvider;
+
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.IdType;
+import org.springframework.stereotype.Component;
+
+@Component
+public class Patient implements IResourceProvider{
+
+    @Create
+    public MethodOutcome createPatient(@ResourceParam Patient patient) {
+        System.out.println("=== Received Patient ===");
+        System.out.println("ID: " + patient.getId());
+        if (!patient.getName().isEmpty()) {
+            System.out.println("Family: " + patient.getName().get(0).getFamily());
+            System.out.println("Given: " + patient.getName().get(0).getGivenAsSingleString());
+        }
+        System.out.println("Gender: " + patient.getGender());
+        System.out.println("=======================");
+
+        MethodOutcome outcome = new MethodOutcome();
+        outcome.setId(new IdType("Patient", "1"));
+        outcome.setCreated(true);
+        return outcome;
+    }
+}

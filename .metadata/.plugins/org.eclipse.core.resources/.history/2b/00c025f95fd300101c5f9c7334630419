@@ -1,0 +1,67 @@
+package com.project.demo.service;
+
+import org.hl7.fhir.r5.model.Bundle;
+import org.hl7.fhir.r5.model.Enumerations.AdministrativeGender;
+import org.hl7.fhir.r5.model.Patient;
+import org.springframework.stereotype.Service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.gclient.StringClientParam;
+import jakarta.annotation.PostConstruct;
+@Service
+public class FhirService {
+    private IGenericClient client;
+    
+    @PostConstruct
+    public void initClient() {
+        try {
+            FhirContext ctx = FhirContext.forR5();
+            String serverBase = "http://hapi.fhir.org/baseR4"; // جرب R4 بدلاً من R5
+            
+            this.client = ctx.newRestfulGenericClient(serverBase);
+            
+            // اختبار الاتصال
+            testConnection();
+        } catch (Exception e) {
+            System.err.println("خطأ في الاتصال بالسيرفر: " + e.getMessage());
+        }
+    }
+    
+    private void testConnection() {
+        try {
+            // محاولة جلب تعريف السيرفر (CapabilityStatement)
+            client.capabilities().ofType("Patient").execute();
+            System.out.println("✓ الاتصال بالسيرفر ناجح");
+        } catch (Exception e) {
+            System.err.println("✗ فشل الاتصال بالسيرفر: " + e.getMessage());
+        }
+    }
+    
+    public void searchPatients() {
+        try {
+            Bundle searchResults = client
+                .search()
+                .forResource(Patient.class)
+                .where(new StringClientParam("family").matches().value("Smith")) // غير Doe لاسم أكثر شيوعًا
+                .count(10) // تحديد العدد
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            System.out.println("عدد المرضى: " + searchResults.getEntry().size());
+            
+            // عرض النتائج
+            for (Bundle.BundleEntryComponent entry : searchResults.getEntry()) {
+                Patient patient = (Patient) entry.getResource();
+                String name = patient.getNameFirstRep().getGivenAsSingleString() + " " + 
+                             patient.getNameFirstRep().getFamily();
+                System.out.println("المريض: " + name);
+            }
+            
+        } catch (Exception e) {
+            System.err.println("خطأ في البحث: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+}

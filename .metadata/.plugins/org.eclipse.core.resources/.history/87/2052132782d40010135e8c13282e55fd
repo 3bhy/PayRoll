@@ -1,0 +1,48 @@
+package com.example.demo.entity.model;
+
+public class PatientModel {
+
+    private String id;
+    private String family;
+    private String given;
+    private String gender;
+
+    public PatientModel() {
+    }
+
+    // ---- ID ----
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    // ---- Family ----
+    public String getFamily() {
+        return family;
+    }
+
+    public void setFamily(String family) {
+        this.family = family;
+    }
+
+    // ---- Given ----
+    public String getGiven() {
+        return given;
+    }
+
+    public void setGiven(String given) {
+        this.given = given;
+    }
+
+    // ---- Gender ----
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+}

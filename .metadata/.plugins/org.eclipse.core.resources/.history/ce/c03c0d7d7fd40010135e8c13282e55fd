@@ -1,0 +1,21 @@
+package com.example.demo.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+
+@Entity
+@Table(name = "patients")
+@Data
+public class Patient {
+    
+	@Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String uuid;
+
+    private String externalId;   // FHIR id
+    private String familyName;
+    private String firstName;
+    private String gender;
+  
+}

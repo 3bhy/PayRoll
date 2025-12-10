@@ -1,0 +1,22 @@
+spring.application.name=fhirServer
+# Server Port
+server.port=8080
+
+# H2 Database Configuration
+spring.datasource.url=jdbc:h2:mem:patientdb
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=ahmed
+spring.datasource.password=123
+
+# H2 Console
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+
+# JPA
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# Disable banner
+spring.main.banner-mode=off

@@ -1,0 +1,57 @@
+package com.example.demo.config;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.jpa.api.config.JpaStorageSettings;
+import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
+import ca.uhn.fhir.jpa.provider.JpaSystemProvider;
+import ca.uhn.fhir.rest.server.IResourceProvider;
+import ca.uhn.fhir.rest.server.RestfulServer;
+import jakarta.persistence.EntityManagerFactory;
+
+import java.util.List;
+
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.PlatformTransactionManager;
+
+import com.example.demo.config.PatientResourceProvider;
+@Configuration
+public class FhirJpaServer {
+
+    @Bean
+    public ServletRegistrationBean<RestfulServer> fhirServlet(
+            FhirContext fhirContext,
+            EntityManagerFactory entityManagerFactory,
+            PlatformTransactionManager txManager
+    ) {
+        RestfulServer server = new RestfulServer(fhirContext);
+
+        // DAO Config
+        JpaStorageSettings settings = new JpaStorageSettings();
+        settings.setIndexMissingFields(JpaStorageSettings.IndexEnabledEnum.DISABLED);
+
+        // JPA Bundle Provider
+        DaoRegistry daoRegistry = new DaoRegistry(fhirContext);
+        FhirInstanceValidatorSupport validatorSupport = new FhirInstanceValidatorSupport(fhirContext);
+
+        // Enable DAO for Patient
+        JpaPatientDao patientDao = new JpaPatientDao();
+        patientDao.setContext(fhirContext);
+        patientDao.setEntityManager(entityManagerFactory.createEntityManager());
+        patientDao.setStorageSettings(settings);
+        patientDao.setTransactionManager(txManager);
+
+        daoRegistry.register(patientDao);
+
+        // Register Providers
+        server.setResourceProviders(daoRegistry.getResourceProviders());
+
+        return new ServletRegistrationBean<>(server, "/fhir/*");
+    }
+
+    @Bean
+    public FhirContext fhirContext() {
+        return FhirContext.forR4();
+    }
+}

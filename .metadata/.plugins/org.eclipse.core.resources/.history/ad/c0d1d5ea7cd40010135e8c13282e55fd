@@ -1,0 +1,34 @@
+package com.example.server.controller;
+
+import com.example.server.entity.PatientEntity;
+import com.example.server.repo.PatientRepository;
+import lombok.RequiredArgsConstructor;
+import org.hl7.fhir.r4.model.Patient;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/patient")
+public class PatientController {
+
+    private final PatientRepo repo;
+
+    @PostMapping
+    public String receivePatient(@RequestBody Patient patient) {
+
+        System.out.println("=== Received Patient From FHIR Client ===");
+        System.out.println("Identifier: " + patient.getIdentifierFirstRep().getValue());
+        System.out.println("Name: " + patient.getNameFirstRep().getNameAsSingleString());
+        System.out.println("=========================================");
+
+        // Save to DB
+        PatientEntity entity = new PatientEntity();
+        entity.setIdentifier(patient.getIdentifierFirstRep().getValue());
+        entity.setFamilyName(patient.getNameFirstRep().getFamily());
+        entity.setGivenName(patient.getNameFirstRep().getGivenAsSingleString());
+
+        repo.save(entity);
+
+        return "Patient saved!";
+    }
+}

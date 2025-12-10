@@ -1,0 +1,34 @@
+package com.project.demo;
+
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.project.demo.repo.EmployeeRepo;
+import com.project.demo.repo.EmployeeSalaryRepo;
+import com.project.demo.repo.SalesRepo;
+import com.project.demo.repo.ShiftTimeRepo;
+import com.project.demo.repo.shiftTimeAttendanceRepo;
+
+@ExtendWith(MockitoExtension.class)
+public class EmployeeSalaryTest {
+	 @Mock
+	    private EmployeeRepo employeeRepo;
+
+	    @Mock
+	    private EmployeeSalaryRepo employeeSalaryRepo;
+
+	    @Mock
+	    private ShiftTimeRepo shiftTimeRepo;
+
+	    @Mock
+	    private SalesRepo salesRepo;
+
+	    @Mock
+	    private shiftTimeAttendanceRepo shiftTimeAttendanceRepo;
+
+	    @InjectMocks
+	    private EmployeeSalaryService employeeSalaryService;
+	
+	
+}

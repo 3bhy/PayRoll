@@ -1,0 +1,61 @@
+package com.example.demo.controller;
+
+
+import org.springframework.web.bind.annotation.*;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+
+@Controller
+public class FhirController {
+    
+    private final FhirService fhirService;
+    
+    public FhirController(FhirService fhirService) {
+        this.fhirService = fhirService;
+    }
+    
+    @GetMapping("/")
+    public String home(Model model) {
+        model.addAttribute("title", "FHIR Demo - بدون Docker");
+        model.addAttribute("serverInfo", fhirService.getServerInfo());
+        model.addAttribute("systemInfo", fhirService.getSystemInfo());
+        return "home";
+    }
+    
+    @GetMapping("/search")
+    public String searchPatients(Model model) {
+        model.addAttribute("title", "بحث عن المرضى");
+        model.addAttribute("results", fhirService.searchPatients());
+        model.addAttribute("serverInfo", fhirService.getServerInfo());
+        return "search";
+    }
+    
+    @GetMapping("/create")
+    public String createPatient(Model model) {
+        model.addAttribute("title", "إنشاء مريض");
+        model.addAttribute("message", fhirService.createTestPatient());
+        model.addAttribute("serverInfo", fhirService.getServerInfo());
+        return "create";
+    }
+    
+    @GetMapping("/info")
+    public String systemInfo(Model model) {
+        model.addAttribute("title", "معلومات النظام");
+        model.addAttribute("systemInfo", fhirService.getSystemInfo());
+        model.addAttribute("serverInfo", fhirService.getServerInfo());
+        return "info";
+    }
+    
+    // API endpoints للاختبار
+    @GetMapping("/api/test")
+    @ResponseBody
+    public String test() {
+        return "✅ FHIR Application is running on http://localhost:8081";
+    }
+    
+    @GetMapping("/api/status")
+    @ResponseBody
+    public String status() {
+        return fhirService.getServerInfo();
+    }
+}

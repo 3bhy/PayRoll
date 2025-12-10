@@ -1,0 +1,107 @@
+package com.project.demo.controller;
+
+import java.sql.Date;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.project.demo.entity.EmployeeShift;
+import com.project.demo.model.EmployeeShiftModel;
+import com.project.demo.service.EmployeeShiftService;
+
+@RestController
+@RequestMapping("/api")
+public class EmShiftController {
+
+	@Autowired
+	private final EmployeeShiftService employeeShiftService;
+
+	public EmShiftController(EmployeeShiftService employeeShiftService) {
+		this.employeeShiftService = employeeShiftService;
+	}
+
+
+	// get by id
+	@GetMapping("/getEmployeeShift/{id}")
+	public ResponseEntity<?> getEmployeeShiftById(@PathVariable Integer id) {
+		try {
+			EmployeeShift shift = employeeShiftService.getEmployeeShiftById(id);
+			if (shift == null) {
+				return ResponseEntity.ok().body(null);
+			}
+			return ResponseEntity.ok(shift);
+		} catch (Exception e) {
+			return ResponseEntity.ok().body(null);
+		}
+	}
+
+	// filters
+	@GetMapping("/searchEmployeeShift")
+	public ResponseEntity<List<EmployeeShift>> getShiftsByFilters(@RequestParam(required = false) Integer employee_id,
+			@RequestParam(required = false) Boolean active, @RequestParam(required = false) Date start_active_date,
+			RequestParam(required = false) Date end_active_date, @RequestParam(required = false) Integer company_id) {
+
+		try {
+			List<EmployeeShift> shifts = employeeShiftService.getShiftsByIdAndFilters(employee_id, active,
+					start_active_date, end_active_date, company_id);
+			
+			if (shifts == null || shifts.isEmpty()) {
+				return ResponseEntity.ok(Collections.emptyList());
+			}
+			return ResponseEntity.ok(shifts);
+		} catch (Exception e) {
+			return ResponseEntity.ok(Collections.emptyList());
+		}
+	}
+
+
+	// create
+	@PostMapping("/addEmployeeShift")
+	public ResponseEntity<?> createEmployeeShift(@RequestBody EmployeeShiftModel shiftModel) {
+		try {
+			EmployeeShift createdShift = employeeShiftService.createShift(shiftModel);
+			return ResponseEntity.status(HttpStatus.CREATED).body(createdShift);
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(Map.of("message", "Error creating employee shift: " + e.getMessage()));
+		}
+	}
+
+	// update
+	@PutMapping("/updateEmployeeShift/{id}")
+	public ResponseEntity<?> updateEmployeeShift(@PathVariable Integer id,
+			@RequestBody EmployeeShift shiftDetails) {
+		try {
+			EmployeeShift updatedShift = employeeShiftService.updateEmployeeShift(id, shiftDetails);
+			return ResponseEntity.ok(updatedShift);
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(Map.of("message", "Error updating employee shift: " + e.getMessage()));
+		}
+	}
+
+	// delete
+	@DeleteMapping("/deleteEmployeeShift/{id}")
+	public ResponseEntity<?> deleteEmployeeShift(@PathVariable Integer id) {
+		try {
+			employeeShiftService.deleteShifts(id);
+			return ResponseEntity.noContent().build();
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(Map.of("message", "Error deleting employee shift: " + e.getMessage()));
+		}
+	}
+}

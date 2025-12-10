@@ -1,0 +1,68 @@
+package com.example.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+
+import org.hl7.fhir.r4.model.*;
+import org.springframework.stereotype.Service;
+
+
+@Service
+public class FhirClientService {
+
+	public void sendSimplePatient() {
+	    try {
+	        System.out.println("\n🚀 بدء إرسال Patient...");
+	        
+	        FhirContext ctx = FhirContext.forR4();
+	        String serverBase = "http://localhost:8084/fhir";
+	        
+	        System.out.println("📡 جاري الاتصال بـ: " + serverBase);
+	        
+	        IGenericClient client = ctx.newRestfulGenericClient(serverBase);
+	        
+	        // زيادة الـ timeout
+	        ctx.getRestfulClientFactory().setConnectTimeout(30000);
+	        ctx.getRestfulClientFactory().setSocketTimeout(30000);
+	        
+	        Patient patient = new Patient();
+	        patient.addName()
+	                .setFamily("Monne")
+	                .addGiven("Ahmed");
+	        patient.setGender(Enumerations.AdministrativeGender.MALE);
+	        
+	        System.out.println("📤 البيانات المعدة للإرسال:");
+	        System.out.println("- Name: Monne Ahmed");
+	        System.out.println("- Gender: MALE");
+	        
+	        System.out.println("🔄 جاري الإرسال...");
+	        
+	        MethodOutcome outcome = client.create()
+	                .resource(patient)
+	                .prettyPrint()
+	                .encodedJson()
+	                .execute();
+	        
+	        System.out.println("✅ تم الإرسال!");
+	        System.out.println("📦 Response received");
+	        
+	        if (outcome != null) {
+	            System.out.println("ID: " + outcome.getId());
+	            System.out.println("Created: " + outcome.getCreated());
+	        }
+	        
+	    } catch (Exception e) {
+	        System.err.println("\n❌ ❌ ❌ خطأ في الإرسال! ❌ ❌ ❌");
+	        System.err.println("Error: " + e.getClass().getName());
+	        System.err.println("Message: " + e.getMessage());
+	        
+	        // طباعة الـ stack trace كامل
+	        e.printStackTrace();
+	        
+	        System.err.println("\n🔧 استكشاف الأخطاء:");
+	        System.err.println("1. تأكد السيرفر شغال: http://localhost:8084");
+	        System.err.println("2. جرب في المتصفح: http://localhost:8084/fhir/patients");
+	        System.err.println("3. تحقق من logs السيرفر");
+	    }
+	}}

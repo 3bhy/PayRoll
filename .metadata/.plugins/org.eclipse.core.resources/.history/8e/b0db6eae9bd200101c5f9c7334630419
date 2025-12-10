@@ -1,0 +1,458 @@
+package com.project.demo;
+
+import com.project.demo.entity.*;
+import com.project.demo.model.EmployeeModel;
+import com.project.demo.repo.EmployeeRepo;
+import com.project.demo.service.EmployeeService;
+
+import jakarta.persistence.EntityNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class EmployeeTest {
+
+    @Mock
+    private EmployeeRepo employeeRepository;
+
+    @InjectMocks
+    private EmployeeService employeeService;
+
+    private Employee employee;
+    private EmployeeModel employeeModel;
+    private Company company;
+    private Person person;
+    private Profile profile;
+
+    @BeforeEach
+    void setUp() {
+        employeeModel = new EmployeeModel(); 
+        
+ 
+        company = new Company();
+        company.setCompanyId(1);
+        
+        person = new Person();
+        person.setPersonId(1);
+        
+        profile = new Profile();
+        profile.setProfileId(1);
+        
+        employee = new Employee();
+        employee.setEmployeeId(1);
+        employee.setCompany(company);
+        employee.setPerson(person);
+        employee.setProfile(profile);
+        employee.setManagerId(2);
+        employee.setSalary(5000.0f);
+        employee.setSalaryCycle("MONTHLY");
+        employee.setSalesIncentivePercent(10.0f);
+        employee.setIncentiveOnAllSales(true);
+        
+        employeeModel.setCompanyId(1);
+        employeeModel.setPersonId(1);
+        employeeModel.setProfileId(1);
+        employeeModel.setManagerId(2);
+        employeeModel.setSalary(5000.0f);
+        employeeModel.setSalaryCycle("MONTHLY");
+        employeeModel.setSalesIncentivePercent(10.0f);
+        employeeModel.setIncentiveOnAllSales(true);
+    
+    }
+
+    // ==================== getEmployeesByFilters Tests ====================
+
+    @Test
+    void testGetEmployeesByFilters_AllFiltersNull() {
+        List<Employee> result = employeeService.getEmployeesByFilters(null, null, null);
+        
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @SuppressWarnings("unchecked")
+	@Test
+    void testGetEmployeesByFilters_CompanyIdOnly() {
+        List<Employee> expected = Arrays.asList(employee);
+        when(employeeRepository.findAll(any(Specification.class))).thenReturn(expected);
+
+        List<Employee> result = employeeService.getEmployeesByFilters(1, null, null);
+        
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(employee, result.get(0));
+        verify(employeeRepository).findAll(any(Specification.class));
+    }
+    @SuppressWarnings("unchecked")
+    @Test
+    void testGetEmployeesByFilters_PersonIdOnly() {
+        when(employeeRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(employee));
+        
+        List<Employee> result = employeeService.getEmployeesByFilters(null, 1, null);
+        
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(employeeRepository).findAll(any(Specification.class));
+    }
+    @SuppressWarnings("unchecked")
+    @Test
+    void testGetEmployeesByFilters_ManagerIdOnly() {
+        when(employeeRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(employee));
+        
+        
+        List<Employee> result = employeeService.getEmployeesByFilters(null, null, 2);
+        
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(employeeRepository).findAll(any(Specification.class));
+    }
+    @SuppressWarnings("unchecked")
+    @Test
+    void testGetEmployeesByFilters_MultipleFilters() {
+        when(employeeRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(employee));
+        
+        List<Employee> result = employeeService.getEmployeesByFilters(1, 1, 2);
+        
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(employeeRepository).findAll(any(Specification.class));
+    }
+    @SuppressWarnings("unchecked")
+    @Test
+    void testGetEmployeesByFilters_NoResults() {
+        when(employeeRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
+        
+        List<Employee> result = employeeService.getEmployeesByFilters(1, 1, 2);
+        
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        verify(employeeRepository).findAll(any(Specification.class));
+    }
+
+  
+    @SuppressWarnings("unchecked")
+    @Test
+    void testGetEmployeesByFilters_WithNegativeIds() {
+        when(employeeRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(employee));
+        
+        List<Employee> result = employeeService.getEmployeesByFilters(-1, -1, -1);
+        
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(employeeRepository).findAll(any(Specification.class));
+    }
+
+    // ==================== createEmployee Tests ====================
+
+    @Test
+    void testCreateEmployee() {
+        when(employeeRepository.saveAndFlush(any(Employee.class))).thenReturn(employee);
+        
+        Employee result = employeeService.createEmployee(employeeModel);
+        
+        assertNotNull(result);
+        assertEquals(1, result.getEmployee());
+        assertEquals(5000.0f, result.getSalary());
+        assertEquals("MONTHLY", result.getSalaryCycle());
+        verify(employeeRepository).saveAndFlush(any(Employee.class));
+    }
+
+    @Test
+    void testCreateEmployee_WithNullSalary() {
+        employeeModel.setSalary(null);
+        Employee employeeWithoutSalary = new Employee();
+        employeeWithoutSalary.setEmployeeId(1);
+        employeeWithoutSalary.setSalary(null);
+        
+        when(employeeRepository.saveAndFlush(any(Employee.class))).thenReturn(employeeWithoutSalary);
+        
+        Employee result = employeeService.createEmployee(employeeModel);
+        
+        assertNotNull(result);
+        assertNull(result.getSalary());
+        verify(employeeRepository).saveAndFlush(any(Employee.class));
+    }
+
+    @Test
+    void testCreateEmployee_WithZeroSalary() {
+        employeeModel.setSalary(0.0f);
+        Employee employeeWithZeroSalary = new Employee();
+        employeeWithZeroSalary.setEmployeeId(1);
+        employeeWithZeroSalary.setSalary(0.0f);
+        
+        when(employeeRepository.saveAndFlush(any(Employee.class))).thenReturn(employeeWithZeroSalary);
+        
+        Employee result = employeeService.createEmployee(employeeModel);
+        
+        assertNotNull(result);
+        assertEquals(0.0f, result.getSalary());
+        verify(employeeRepository).saveAndFlush(any(Employee.class));
+    }
+
+    @Test
+    void testCreateEmployee_WithNegativeSalary() {
+        employeeModel.setSalary(-1000.0f);
+        
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> employeeService.createEmployee(employeeModel));
+        
+        assertEquals("Salary cannot be negative", exception.getMessage());
+        verify(employeeRepository, never()).saveAndFlush(any(Employee.class));
+    }
+
+    @Test
+    void testCreateEmployee_WithoutProfileId() {
+        employeeModel.setProfileId(null);
+        Employee employeeWithoutProfile = new Employee();
+        employeeWithoutProfile.setEmployeeId(1);
+        employeeWithoutProfile.setProfile(null);
+        
+        when(employeeRepository.saveAndFlush(any(Employee.class))).thenReturn(employeeWithoutProfile);
+        
+        Employee result = employeeService.createEmployee(employeeModel);
+        
+        assertNotNull(result);
+        assertNull(result.getProfile());
+        verify(employeeRepository).saveAndFlush(any(Employee.class));
+    }
+
+    @Test
+    void testCreateEmployee_WithoutManagerId() {
+        employeeModel.setManagerId(null);
+        Employee employeeWithoutManager = new Employee();
+        employeeWithoutManager.setEmployeeId(1);
+        employeeWithoutManager.setManagerId(null);
+        
+        when(employeeRepository.saveAndFlush(any(Employee.class))).thenReturn(employeeWithoutManager);
+        
+        Employee result = employeeService.createEmployee(employeeModel);
+        
+        assertNotNull(result);
+        assertNull(result.getManagerId());
+        verify(employeeRepository).saveAndFlush(any(Employee.class));
+    }
+
+    @Test
+    void testCreateEmployee_WithNullIncentiveOnAllSales() {
+        employeeModel.setIncentiveOnAllSales(null);
+        Employee employeeWithoutIncentiveFlag = new Employee();
+        employeeWithoutIncentiveFlag.setEmployeeId(1);
+        employeeWithoutIncentiveFlag.setIncentiveOnAllSales(null);
+        
+        when(employeeRepository.saveAndFlush(any(Employee.class))).thenReturn(employeeWithoutIncentiveFlag);
+        
+        Employee result = employeeService.createEmployee(employeeModel);
+        
+        assertNotNull(result);
+        assertNull(result.getIncentiveOnAllSales());
+        verify(employeeRepository).saveAndFlush(any(Employee.class));
+    }
+
+    @Test
+    void testCreateEmployee_WithNullSalesIncentivePercent() {
+        
+        employeeModel.setSalesIncentivePercent(null);
+        Employee employeeWithoutIncentivePercent = new Employee();
+        employeeWithoutIncentivePercent.setEmployeeId(1);
+        employeeWithoutIncentivePercent.setSalesIncentivePercent(null);
+        
+        when(employeeRepository.saveAndFlush(any(Employee.class))).thenReturn(employeeWithoutIncentivePercent);
+        
+        Employee result = employeeService.createEmployee(employeeModel);
+        
+        assertNotNull(result);
+        assertNull(result.getSalesIncentivePercent());
+        verify(employeeRepository).saveAndFlush(any(Employee.class));
+    }
+
+    @Test
+    void testCreateEmployee_WithNullSalaryCycle() {
+        employeeModel.setSalaryCycle(null);
+        Employee employeeWithoutSalaryCycle = new Employee();
+        employeeWithoutSalaryCycle.setEmployeeId(1);
+        employeeWithoutSalaryCycle.setSalaryCycle(null);
+        
+        when(employeeRepository.saveAndFlush(any(Employee.class))).thenReturn(employeeWithoutSalaryCycle);
+        
+        Employee result = employeeService.createEmployee(employeeModel);
+        
+        assertNotNull(result);
+        assertNull(result.getSalaryCycle());
+        verify(employeeRepository).saveAndFlush(any(Employee.class));
+    }
+
+    
+
+   
+    // ==================== getEmployeeById Tests ====================
+
+    @Test
+    void testGetEmployeeById() {
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        
+        Employee result = employeeService.getEmployeeById(1);
+        
+        assertNotNull(result);
+        assertEquals(1, result.getEmployee());
+        verify(employeeRepository).findById(1);
+    }
+
+    @Test
+    void testGetEmployeeById_NotFound() {
+        when(employeeRepository.findById(999)).thenReturn(Optional.empty());
+        
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> employeeService.getEmployeeById(999));
+        
+        assertEquals("Employee not found with id: 999", exception.getMessage());
+        verify(employeeRepository).findById(999);
+    }
+
+   
+   
+    // ==================== updateEmployee Tests ====================
+
+    @Test
+    void testUpdateEmployee() {
+        Employee updatedEmployee = new Employee();
+        updatedEmployee.setEmployeeId(1);
+        updatedEmployee.setSalary(6000.0f);
+        updatedEmployee.setIncentiveOnAllSales(false);
+        
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        when(employeeRepository.save(any(Employee.class))).thenReturn(updatedEmployee);
+        
+        Employee result = employeeService.updateEmployee(1, updatedEmployee);
+        
+        assertNotNull(result);
+        assertEquals(6000.0f, result.getSalary());
+        assertFalse(result.getIncentiveOnAllSales());
+        verify(employeeRepository).findById(1);
+        verify(employeeRepository).save(any(Employee.class));
+    }
+
+   
+
+   
+  
+    @Test
+    void testUpdateEmployee_NegativeSalary() {
+        Employee updateDetails = new Employee();
+        updateDetails.setSalary(-1000.0f);
+        
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> employeeService.updateEmployee(1, updateDetails));
+        
+        assertEquals("Salary cannot be negative", exception.getMessage());
+        verify(employeeRepository).findById(1);
+        verify(employeeRepository, never()).save(any(Employee.class));
+    }
+
+  
+    @Test
+    void testUpdateEmployee_NullSalary() {
+        Employee updateDetails = new Employee();
+        updateDetails.setSalary(null);
+        
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        when(employeeRepository.save(any(Employee.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        
+        Employee result = employeeService.updateEmployee(1, updateDetails);
+        
+        assertNotNull(result);
+        assertEquals(5000.0f, result.getSalary()); 
+        verify(employeeRepository).findById(1);
+        verify(employeeRepository).save(any(Employee.class));
+    }
+
+    
+
+  
+
+    @Test
+    void testUpdateEmployee_EmployeeNotFound() {
+        when(employeeRepository.findById(999)).thenReturn(Optional.empty());
+        
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> employeeService.updateEmployee(999, new Employee()));
+        
+        assertEquals("Employee not found with id: 999", exception.getMessage());
+        verify(employeeRepository).findById(999);
+        verify(employeeRepository, never()).save(any(Employee.class));
+    }
+
+   
+    // ==================== deleteEmployee Tests ====================
+
+    @Test
+    void testDeleteEmployee() {
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        doNothing().when(employeeRepository).delete(employee);
+        
+        employeeService.deleteEmployee(1);
+        
+        verify(employeeRepository).findById(1);
+        verify(employeeRepository).delete(employee);
+    }
+
+    @Test
+    void testDeleteEmployee_NotFound() {
+        when(employeeRepository.findById(999)).thenReturn(Optional.empty());
+        
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> employeeService.deleteEmployee(999));
+        
+        assertEquals("Employee not found with id: 999", exception.getMessage());
+        verify(employeeRepository).findById(999);
+        verify(employeeRepository, never()).delete(any(Employee.class));
+    }
+
+    @Test
+    void testDeleteEmployee_NullId() {
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> employeeService.deleteEmployee(null));
+        
+        assertEquals("Employee not found with id: null", exception.getMessage());
+        verify(employeeRepository).findById(null);
+        verify(employeeRepository, never()).delete(any(Employee.class));
+    }
+
+   
+    @Test
+    void testDeleteEmployee_NegativeId() {
+        Employee negativeIdEmployee = new Employee();
+        negativeIdEmployee.setEmployeeId(-1);
+        when(employeeRepository.findById(-1)).thenReturn(Optional.of(negativeIdEmployee));
+        doNothing().when(employeeRepository).delete(negativeIdEmployee);
+        
+        employeeService.deleteEmployee(-1);
+        
+        verify(employeeRepository).findById(-1);
+        verify(employeeRepository).delete(negativeIdEmployee);
+    }
+
+   
+
+  
+
+   
+
+   
+}

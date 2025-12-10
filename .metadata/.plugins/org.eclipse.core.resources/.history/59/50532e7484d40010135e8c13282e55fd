@@ -1,0 +1,17 @@
+package com.example.demo.model;
+
+import lombok.Data;
+import java.util.List;
+
+@Data
+public class FhirPatientDTO {
+    private String id;
+    private String gender;
+    private List<Name> name;
+
+    @Data
+    public static class Name {
+        private String family;
+        private List<String> given;
+    }
+}

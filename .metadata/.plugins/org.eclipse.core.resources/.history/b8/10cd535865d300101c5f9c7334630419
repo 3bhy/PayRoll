@@ -1,0 +1,232 @@
+package com.project.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.client.interceptor.LoggingInterceptor;
+import jakarta.annotation.PostConstruct;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Patient;
+import org.springframework.stereotype.Service;
+
+@Service
+public class FhirService {
+    private IGenericClient client;
+    private boolean initialized = false;
+    
+    @PostConstruct
+    public void initClient() {
+        System.out.println("=== بدء تهيئة خدمة FHIR ===");
+        
+        try {
+            // استخدم R4 بدلاً من R5
+            FhirContext ctx = FhirContext.forR4();
+            System.out.println("✅ تم إنشاء سياق FHIR R4");
+            
+            // استخدم HTTPS مع HAPI FHIR
+            String serverBase = "https://hapi.fhir.org/baseR4";
+            System.out.println("🌐 محاولة الاتصال بـ: " + serverBase);
+            
+            // إنشاء العميل
+            this.client = ctx.newRestfulGenericClient(serverBase);
+            
+            // إعداد مهلات الاتصال
+            ctx.getRestfulClientFactory().setConnectTimeout(30 * 1000); // 30 ثانية
+            ctx.getRestfulClientFactory().setSocketTimeout(30 * 1000);  // 30 ثانية
+            
+            // تسجيل الطلبات للتصحيح
+            LoggingInterceptor loggingInterceptor = new LoggingInterceptor();
+            loggingInterceptor.setLogRequestSummary(true);
+            loggingInterceptor.setLogRequestSummary(true);
+            loggingInterceptor.setLogRequestBody(true);
+            this.client.registerInterceptor(loggingInterceptor);
+            
+            // اختبار الاتصال
+            testConnection();
+            
+            this.initialized = true;
+            System.out.println("✅ ✅ ✅ تم تهيئة عميل FHIR بنجاح!");
+            System.out.println("=== انتهاء تهيئة خدمة FHIR ===");
+            
+        } catch (Exception e) {
+            System.err.println("❌ فشل تهيئة عميل FHIR: " + e.getMessage());
+            e.printStackTrace();
+            this.initialized = false;
+        }
+    }
+    
+    private void testConnection() {
+        try {
+            System.out.println("🔍 اختبار الاتصال...");
+            
+            // طريقة بسيطة لاختبار الاتصال
+            Bundle response = client.search()
+                .forResource(Patient.class)
+                .count(1)
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            System.out.println("✅ اختبار الاتصال ناجح!");
+            System.out.println("   نوع الرد: " + response.getType());
+            System.out.println("   العدد الإجمالي: " + response.getTotal());
+            
+        } catch (Exception e) {
+            System.err.println("⚠️  تحذير: اختبار الاتصال فشل، ولكن العميل قد يكون جاهزاً");
+            System.err.println("   السبب: " + e.getMessage());
+            
+            // جرب سيرفر بديل
+            tryAlternativeServer();
+        }
+    }
+    
+    private void tryAlternativeServer() {
+        try {
+            System.out.println("🔄 محاولة سيرفر بديل...");
+            
+            FhirContext ctx = FhirContext.forR4();
+            String alternativeServer = "https://r4.smarthealthit.org";
+            
+            System.out.println("🌐 الاتصال بـ: " + alternativeServer);
+            this.client = ctx.newRestfulGenericClient(alternativeServer);
+            
+            // اختبار بسيط
+            Bundle test = client.search()
+                .forResource(Patient.class)
+                .count(1)
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            System.out.println("✅ نجح الاتصال بالسيرفر البديل!");
+            
+        } catch (Exception e) {
+            System.err.println("❌ فشل جميع محاولات الاتصال");
+        }
+    }
+    
+    public void searchPatients() {
+        if (!initialized || client == null) {
+            System.err.println("❌ ❌ ❌ تحذير: عميل FHIR غير مهيئ!");
+            System.err.println("   - initialized: " + initialized);
+            System.err.println("   - client: " + (client == null ? "NULL" : "موجود"));
+            
+            // حاول إعادة التهيئة
+            System.out.println("🔄 محاولة إعادة التهيئة...");
+            initClient();
+            
+            if (!initialized || client == null) {
+                System.err.println("❌ لا يمكن المتابعة، العميل غير متوفر");
+                return;
+            }
+        }
+        
+        try {
+            System.out.println("\n" + "=".repeat(60));
+            System.out.println("🔍 بدء البحث عن المرضى...");
+            System.out.println("=".repeat(60));
+            
+            // بحث بسيط وآمن
+            Bundle searchResults = client
+                .search()
+                .forResource(Patient.class)
+                .count(5)  // عدد قليل للبداية
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            int patientCount = searchResults.getEntry().size();
+            System.out.println("📊 نتائج البحث:");
+            System.out.println("   - العدد الإجمالي في السيرفر: " + searchResults.getTotal());
+            System.out.println("   - عدد النتائج المعادة: " + patientCount);
+            
+            if (patientCount > 0) {
+                System.out.println("\n📋 قائمة المرضى:");
+                for (Bundle.BundleEntryComponent entry : searchResults.getEntry()) {
+                    if (entry.getResource() instanceof Patient) {
+                        Patient patient = (Patient) entry.getResource();
+                        printPatientDetails(patient);
+                    }
+                }
+            } else {
+                System.out.println("⚠️  لم يتم العثور على مرضى. جرب بحثاً بدون شروط...");
+                searchAllPatients();
+            }
+            
+            System.out.println("=".repeat(60));
+            System.out.println("✅ اكتمل البحث بنجاح!");
+            
+        } catch (Exception e) {
+            System.err.println("\n❌ ❌ ❌ خطأ جسيم في البحث!");
+            System.err.println("   الرسالة: " + e.getMessage());
+            System.err.println("\n🔧 معلومات التصحيح:");
+            e.printStackTrace();
+            
+            System.out.println("\n💡 الحلول المقترحة:");
+            System.out.println("1. تحقق من اتصال الإنترنت");
+            System.out.println("2. جرب تعطيل الجدار الناري مؤقتاً");
+            System.out.println("3. تأكد من أن التبعيات مضبوطة في pom.xml");
+            System.out.println("4. جرب إصداراً أقدم من HAPI FHIR (5.7.0)");
+        }
+    }
+    
+    private void searchAllPatients() {
+        try {
+            System.out.println("\n🌐 بحث شامل...");
+            
+            Bundle results = client
+                .search()
+                .forResource(Patient.class)
+                .count(3)
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            System.out.println("✅ عدد المرضى: " + results.getEntry().size());
+            
+        } catch (Exception e) {
+            System.err.println("❌ فشل البحث الشامل: " + e.getMessage());
+        }
+    }
+    
+    private void printPatientDetails(Patient patient) {
+        StringBuilder sb = new StringBuilder("   👤 ");
+        
+        // المعرف
+        if (patient.hasId()) {
+            String id = patient.getIdElement().getIdPart();
+            if (id.contains("/")) {
+                id = id.substring(id.lastIndexOf("/") + 1);
+            }
+            sb.append("ID: ").append(id).append(" | ");
+        }
+        
+        // الاسم
+        if (patient.hasName() && !patient.getName().isEmpty()) {
+            String given = patient.getNameFirstRep().getGivenAsSingleString();
+            String family = patient.getNameFirstRep().getFamily();
+            
+            sb.append("الاسم: ");
+            if (given != null && !given.isEmpty()) {
+                sb.append(given).append(" ");
+            }
+            if (family != null && !family.isEmpty()) {
+                sb.append(family);
+            }
+            sb.append(" | ");
+        }
+        
+        // الجنس
+        if (patient.hasGender()) {
+            sb.append("الجنس: ").append(patient.getGender().getDisplay());
+        }
+        
+        System.out.println(sb.toString());
+    }
+    
+    // دالة مساعدة للتحقق من حالة الخدمة
+    public String getServiceStatus() {
+        if (!initialized) {
+            return "❌ الخدمة غير مهيئة";
+        }
+        if (client == null) {
+            return "❌ العميل غير موجود";
+        }
+        return "✅ الخدمة جاهزة للاستخدام";
+    }
+}

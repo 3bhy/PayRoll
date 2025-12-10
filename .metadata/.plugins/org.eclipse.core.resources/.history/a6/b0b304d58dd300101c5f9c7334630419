@@ -1,0 +1,35 @@
+package com.project.demo.service;
+
+import org.hl7.fhir.r5.model.Bundle;
+import org.hl7.fhir.r5.model.Patient;
+import org.springframework.stereotype.Service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.gclient.StringClientParam;
+import jakarta.annotation.PostConstruct;
+
+@Service
+public class FhirService {
+
+    private IGenericClient client;
+
+    @PostConstruct
+    public void initClient() {
+        FhirContext ctx = FhirContext.forR5();
+        String serverBase = "https://hapi.fhir.org/baseR5"; // HTTPS مهم جداً
+        this.client = ctx.newRestfulGenericClient(serverBase);
+    }
+
+    public String searchPatients() {
+        Bundle results = client
+                .search()
+                .forResource(Patient.class)
+                .where(new StringClientParam("family").matches().value("Doe"))
+                .returnBundle(Bundle.class)
+                .execute();
+
+        int count = results.getEntry().size();
+        return "عدد المرضى باسم Doe هو: " + count;
+    }
+}

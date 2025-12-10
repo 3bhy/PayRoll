@@ -1,0 +1,39 @@
+package com.project.demo;
+
+
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+import com.project.demo.service.FhirService;
+
+@SpringBootApplication
+@EnableScheduling 
+public class DemoApplication {
+	
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
+	
+	  @Bean
+	    CommandLineRunner run(FhirService fhirService) {
+	        return args -> {
+	            System.out.println("\n" + "=".repeat(50));
+	            System.out.println("   تجربة FHIR - البدء");
+	            System.out.println("=".repeat(50));
+	            
+	            // انتظر لتهيئة العميل
+	            Thread.sleep(2000);
+	            
+	            // تنفيذ البحث
+	            fhirService.testSearch();
+	            
+	            System.out.println("\n" + "=".repeat(50));
+	            System.out.println("   النهاية");
+	            System.out.println("=".repeat(50));
+	        };
+	    }
+
+}

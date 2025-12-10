@@ -1,0 +1,80 @@
+package com.example.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import org.hl7.fhir.r4.model.*;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+
+@Service
+public class FhirClientService {
+
+    private final IGenericClient fhirClient;
+    private final String serverUrl = "https://r4.smarthealthit.org";
+
+    public FhirClientService() {
+        FhirContext ctx = FhirContext.forR4();
+        this.fhirClient = ctx.newRestfulGenericClient(serverUrl);
+        System.out.println("✅ FHIR Client connected to: " + serverUrl);
+    }
+
+    public CapabilityStatement getServerCapabilities() {
+        return fhirClient.capabilities()
+                .ofType(CapabilityStatement.class)
+                .execute();
+    }
+
+    public Bundle searchPatients(int count) {
+        return fhirClient.search()
+                .forResource(Patient.class)
+                .count(count)
+                .returnBundle(Bundle.class)
+                .execute();
+    }
+
+    public Patient getPatientById(String id) {
+        return fhirClient.read()
+                .resource(Patient.class)
+                .withId(id)
+                .execute();
+    }
+
+    public Bundle searchPatientsByCriteria(Map<String, String> criteria) {
+        var search = fhirClient.search().forResource(Patient.class);
+
+        if (criteria.containsKey("family")) {
+            search = search.where(Patient.FAMILY.matches().value(criteria.get("family")));
+        }
+
+        if (criteria.containsKey("given")) {
+            search = search.where(Patient.GIVEN.matches().value(criteria.get("given")));
+        }
+
+        return search.count(20).returnBundle(Bundle.class).execute();
+    }
+
+    public List<String> getAvailableResources() {
+        CapabilityStatement cs = getServerCapabilities();
+        List<String> resources = new ArrayList<>();
+
+        if (cs.hasRest() && cs.getRestFirstRep().hasResource()) {
+            for (CapabilityStatement.CapabilityStatementRestResourceComponent resource :
+                    cs.getRestFirstRep().getResource()) {
+                resources.add(resource.getType());
+            }
+        }
+        return resources;
+    }
+
+    public String extractId(String fullId) {
+        if (fullId.contains("/")) {
+            return fullId.substring(fullId.lastIndexOf("/") + 1);
+        }
+        return fullId;
+    }
+
+    public String getServerUrl() {
+        return serverUrl;
+    }
+}

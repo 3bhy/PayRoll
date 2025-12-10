@@ -1,0 +1,59 @@
+package com.project.demo;
+
+
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+import com.project.demo.service.FhirService;
+
+@SpringBootApplication
+@EnableScheduling 
+public class DemoApplication {
+	
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
+	
+	 @Bean
+	    CommandLineRunner run(FhirService fhirService) {
+	        return args -> {
+	            System.out.println("\n" + "=".repeat(60));
+	            System.out.println("   FHIR CLIENT DEMO - تجربة عميل FHIR");
+	            System.out.println("=".repeat(60));
+	            
+	            // انتظر قليلاً لتهيئة العميل
+	            Thread.sleep(3000);
+	            
+	            // 1. البحث العام
+	            System.out.println("\n🎯 الخطوة 1: البحث عن المرضى");
+	            fhirService.testSearch();
+	            
+	            // انتظر قليلاً
+	            Thread.sleep(2000);
+	            
+	            // 2. البحث بعائلة معينة
+	            System.out.println("\n🎯 الخطوة 2: البحث بعائلة 'Smith'");
+	            fhirService.searchWithCriteria("Smith");
+	            
+	            // انتظر قليلاً
+	            Thread.sleep(2000);
+	            
+	            // 3. محاولة إنشاء مريض (قد لا يعمل في السيرفرات العامة)
+	            System.out.println("\n🎯 الخطوة 3: محاولة إنشاء مريض تجريبي");
+	            fhirService.createSamplePatient();
+	            
+	            System.out.println("\n" + "=".repeat(60));
+	            System.out.println("   ✅ اكتملت التجربة بنجاح!");
+	            System.out.println("=".repeat(60));
+	            
+	            System.out.println("\n💡 ملاحظات:");
+	            System.out.println("1. السيرفرات العامة قد لا تسمح بإنشاء موارد جديدة");
+	            System.out.println("2. للتنمية المحلية، شغل سيرفر HAPI FHIR محلياً:");
+	            System.out.println("   docker run -p 8080:8080 hapiproject/hapi:v5.7.0");
+	            System.out.println("3. ثم استخدم: http://localhost:8080/fhir");
+	        };
+	    }
+}

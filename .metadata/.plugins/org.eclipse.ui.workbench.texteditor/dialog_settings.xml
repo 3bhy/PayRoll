@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
+		<item key="selection" value="h2"/>
+		<item key="wrap" value="true"/>
+		<item key="casesensitive" value="false"/>
+		<item key="wholeword" value="false"/>
+		<item key="incremental" value="false"/>
+		<item key="isRegEx" value="false"/>
+		<list key="findhistory">
+			<item value="h2"/>
+			<item value="spring:"/>
+			<item value="maven-surefire-plugin"/>
+			<item value="compiler"/>
+			<item value="compiler-plugin"/>
+			<item value="maven-compiler-plugin"/>
+			<item value="spring-boot-maven-plugin"/>
+			<item value="    &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;"/>
+			<item value="   &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;"/>
+			<item value="    &lt;artifactId&gt;maven-compiler-plugin&lt;/artifactId&gt;"/>
+			<item value="&lt;version&gt;${project.parent.version}-${hapi.fhir.jpa.server.starter.revision}&lt;/version&gt;"/>
+			<item value="&lt;properties&gt;"/>
+			<item value="maven"/>
+		</list>
+		<list key="replacehistory">
+		</list>
+	</section>
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
+		<item key="DIALOG_X_ORIGIN" value="1150"/>
+		<item key="DIALOG_Y_ORIGIN" value="161"/>
+		<item key="DIALOG_WIDTH" value="336"/>
+		<item key="DIALOG_HEIGHT" value="454"/>
+		<item key="DIALOG_FONT_NAME" value="1|Segoe UI|9.0|0|WINDOWS|1|-15|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI"/>
+	</section>
+</section>

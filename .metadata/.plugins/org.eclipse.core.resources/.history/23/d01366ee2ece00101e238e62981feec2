@@ -1,0 +1,139 @@
+package com.project.demo;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyInt;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
+
+
+import com.project.demo.entity.Employee;
+import com.project.demo.entity.EmployeeSalary;
+import com.project.demo.repo.EmployeeRepo;
+import com.project.demo.repo.EmployeeSalaryRepo;
+import com.project.demo.repo.SalesRepo;
+import com.project.demo.repo.ShiftTimeRepo;
+import com.project.demo.repo.shiftTimeAttendanceRepo;
+import com.project.demo.service.EmployeeSalaryService;
+
+@ExtendWith(MockitoExtension.class)
+public class EmployeeSalaryTest {
+	 @Mock
+	    private EmployeeRepo employeeRepo;
+
+	    @Mock
+	    private EmployeeSalaryRepo employeeSalaryRepo;
+
+	    @Mock
+	    private ShiftTimeRepo shiftTimeRepo;
+
+	    @Mock
+	    private SalesRepo salesRepo;
+
+	    @Mock
+	    private shiftTimeAttendanceRepo shiftTimeAttendanceRepo;
+
+	    @InjectMocks
+	    private EmployeeSalaryService employeeSalaryService;
+	
+	    
+	    @Test
+	    void testCalculateEmployeeSalary() {
+	        // Arrange
+	        Integer employeeId = 1;
+	        Integer year = 2025;
+	        Integer month = 11;
+
+	        // 1) mock employee
+	        Employee emp = new Employee();
+	        emp.setEmployeeId(employeeId);
+	        emp.setSalary(5000f);               // الأساسى
+	        emp.setSalaryCycle("MONTH");        // بدون يوم/ساعة
+	        emp.setSalesIncentivePercent(0f);   // بدون حوافز
+
+	        when(employeeRepo.findById(employeeId)).thenReturn(Optional.of(emp));
+
+	        // 2) mock salary record (مفيش سجل قبل كدا)
+	        when(employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month))
+	            .thenReturn(Optional.empty());
+
+	        // 3) mock save
+	        when(employeeSalaryRepo.save(any(EmployeeSalary.class)))
+	            .thenAnswer(inv -> inv.getArgument(0));  // يرجع نفس اللي اتبعت
+
+	        // Act
+	        EmployeeSalary result =
+	            employeeSalaryService.calculateEmployeeSalary(employeeId, year, month);
+
+	        // Assert
+	        assertNotNull(result);
+	        assertEquals(5000f, result.getMainSalary());
+	        assertEquals(5000f, result.getCalculatedSalary());
+	        assertEquals(0f, result.getCalculatedIncentive());
+	        assertEquals(employeeId, result.getEmployeeId());
+	        assertEquals(year, result.getYear());
+	        assertEquals(month, result.getMonth());
+	    }
+	    @Test
+	    void testCalculateBaseSalary() {
+	        // Arrange
+	        Integer employeeId = 1;
+	        Integer year = 2025;
+	        Integer month = 11;
+
+	        Employee emp = new Employee();
+	        emp.setEmployeeId(employeeId);
+	        emp.setSalary(100f);
+	        emp.setSalaryCycle("HOUR"); // عشان يعتمد على الوقت
+	        emp.setSalesIncentivePercent(0f);
+
+	        when(employeeRepo.findById(employeeId)).thenReturn(Optional.of(emp));
+	        when(employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month))
+	            .thenReturn(Optional.empty());
+	        when(employeeSalaryRepo.save(any(EmployeeSalary.class)))
+	            .thenAnswer(inv -> inv.getArgument(0));
+	        when(shiftTimeAttendanceRepo.findTotalActivityTimeByEmployeeAndMonth(anyInt(), anyInt(), anyInt()))
+	            .thenReturn(20f);
+
+	        // Act
+	        EmployeeSalary result = employeeSalaryService.calculateEmployeeSalary(employeeId, year, month);
+
+	        // Assert
+	        assertNotNull(result);
+	        assertEquals(100f * 20f, result.getCalculatedSalary()); // because salaryCycle = HOUR
+	    }
+
+	    @Test
+	    void testUpdateSalaryOnAttendanceChange() {
+	        // Arrange
+	        Integer employeeId = 1;
+	        java.util.Date attendanceDate = java.sql.Date.valueOf("2025-11-15");
+
+	        Employee mockEmployee = new Employee();
+	        mockEmployee.setEmployeeId(employeeId);
+	        mockEmployee.setSalary(1000f);
+
+	        EmployeeSalary mockSalary = new EmployeeSalary();
+	        mockSalary.setEmployeeId(employeeId);
+
+	        when(employeeRepo.findById(employeeId)).thenReturn(Optional.of(mockEmployee));
+	        when(employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId,attendanceDate.getYear(), attendanceDate.getMonth()))
+	                .thenReturn(Optional.empty());
+	        when(employeeSalaryRepo.save(any(EmployeeSalary.class))).thenReturn(mockSalary);
+	        when(shiftTimeAttendanceRepo.findTotalActivityTimeByEmployeeAndMonth(anyInt(), anyInt(), anyInt()))
+	                .thenReturn(20f);
+
+	        // Act
+	        assertDoesNotThrow(() -> employeeSalaryService.updateSalaryOnAttendanceChange(employeeId, attendanceDate));
+	    }
+
+	
+}

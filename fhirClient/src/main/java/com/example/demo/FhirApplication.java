@@ -1,0 +1,26 @@
+package com.example.demo;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import com.example.demo.service.FhirClientService;
+
+import ca.uhn.fhir.rest.api.MethodOutcome;
+
+
+@SpringBootApplication
+public class FhirApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(FhirApplication.class, args);
+		 FhirClientService service = new FhirClientService();
+
+	        MethodOutcome outcome = service.sendSimplePatient();
+
+	        service.readPatient(outcome.getId());
+	        service.updatePatient(outcome.getId());
+	        String logicalId = outcome.getId().getIdPart();
+	        service.deletePatient(logicalId);
+	}
+	
+}

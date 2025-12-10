@@ -1,0 +1,19 @@
+package com.example.demo.config;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.jpa.rp.r4.PatientResourceProvider;
+import ca.uhn.fhir.rest.server.RestfulServer;
+import jakarta.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+
+@WebServlet(urlPatterns = "/fhir/*", displayName = "FHIR JPA Server")
+public class FhirJpaServer extends RestfulServer {
+
+    @Override
+    public void init() throws ServletException {
+        setFhirContext(FhirContext.forR4());
+
+        // سجل Resource Providers
+        registerProvider(new PatientResourceProvider());
+    }
+}

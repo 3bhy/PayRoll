@@ -1,0 +1,43 @@
+package com.example.demo.controller;
+
+import com.example.demo.dto.FhirPatientDTO;
+import com.example.demo.entity.Patient;
+import com.example.demo.entity.model.PatientModel;
+import com.example.demo.repo.PatientRepo;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/patient")
+public class PatientController {
+
+    @Autowired
+    private PatientRepo repo;
+
+    @PostMapping
+    public String receivePatient(@RequestBody PatientModel patientDTO) {
+
+        // طباعة البيانات في الـ console
+        System.out.println("=== Received Patient From FHIR Client ===");
+        System.out.println("ID: " + patientDTO.getId());
+        if (patientDTO.getName() != null && !patientDTO.getName().isEmpty()) {
+            System.out.println("Family: " + patientDTO.getName().get(0).getFamily());
+            System.out.println("Given: " + patientDTO.getName().get(0).getGiven().get(0));
+        }
+        System.out.println("Gender: " + patientDTO.getGender());
+        System.out.println("=========================================");
+
+        // تحويل للـ Entity وحفظه في DB
+        Patient patient = new Patient();
+        patient.setId(patientDTO.getId());
+        patient.setGender(patientDTO.getGender());
+        if (patientDTO.getName() != null && !patientDTO.getName().isEmpty()) {
+            patient.setFamilyName(patientDTO.getName().get(0).getFamily());
+            patient.setFirstName(patientDTO.getName().get(0).getGiven().get(0));
+        }
+
+        repo.save(patient);
+
+        return "Patient saved!";
+    }
+}

@@ -1,0 +1,135 @@
+package com.project.demo.service;
+
+import java.sql.Date;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.project.demo.entity.Employee;
+import com.project.demo.entity.EmployeeShift;
+import com.project.demo.entity.Shift;
+import com.project.demo.model.EmployeeShiftModel;
+import com.project.demo.repo.EmployeeShiftRepo;
+
+import jakarta.persistence.EntityNotFoundException;
+
+@Service
+public class EmployeeShiftService {
+
+	@Autowired
+	private EmployeeShiftRepo employeeshiftRepository;
+
+	public EmployeeShiftService(EmployeeShiftRepo employeeshiftRepository) {
+		this.employeeshiftRepository = employeeshiftRepository;
+	}
+
+	public List<EmployeeShift> getShiftsByIdAndFilters(Integer employeeId, Boolean active, Date startActiveDate,
+			Date endActiveDate, Integer companyId) {
+
+		return employeeshiftRepository.findShiftsByFilters(employeeId, active, companyId, startActiveDate,
+				endActiveDate);
+	}
+
+	public List<Integer> getEmployeeShiftIds(Integer employeeId) {
+		 if (employeeId == null) {
+		        throw new IllegalArgumentException("Employee ID cannot be null");
+		    }
+		return employeeshiftRepository.findActiveShiftIdsByEmployeeId(employeeId);
+	}
+
+	// create
+	public EmployeeShift createShift(EmployeeShiftModel shiftModel) {
+	    if (shiftModel.getEmployeeId() == null) {
+	        throw new IllegalArgumentException("Employee ID must not be null");
+	    }
+
+	    if (shiftModel.getShiftId() == null) {
+	        throw new IllegalArgumentException("Shift ID must not be null");
+	    }
+
+	    if (shiftModel.getStartActiveDate() == null || shiftModel.getEndActiveDate() == null) {
+	        throw new IllegalArgumentException("Start and End dates must not be null");
+	    }
+
+	    if (shiftModel.getEndActiveDate().before(shiftModel.getStartActiveDate())) {
+	        throw new IllegalArgumentException("End date cannot be before Start date");
+	    }
+
+	    EmployeeShift shift = new EmployeeShift();
+
+	    Employee employee = new Employee();
+	    employee.setEmployeeId(shiftModel.getEmployeeId());
+	    shift.setEmployee(employee);
+
+	    Shift shiftEntity = new Shift();
+	    shiftEntity.setShiftId(shiftModel.getShiftId());
+	    shift.setShift(shiftEntity);
+
+	    shift.setActive(shiftModel.getActive());
+	    shift.setStartActiveDate(shiftModel.getStartActiveDate());
+	    shift.setEndActiveDate(shiftModel.getEndActiveDate());
+
+	    return employeeshiftRepository.save(shift);
+	}
+
+
+	// find by id
+	public EmployeeShift getShiftsById(Integer id) {
+		return employeeshiftRepository.findById(id)
+				.orElseThrow(() -> new EntityNotFoundException("Shift not found with id: " + id));
+	}
+
+	// update
+	public EmployeeShift updateEmployeeShift(Integer id, EmployeeShift shiftDetails) {
+	    EmployeeShift shift = getEmployeeShiftById(id);
+
+	    // Update employee and shift if provided
+	    if (shiftDetails.getEmployee() != null) {
+	        shift.setEmployee(shiftDetails.getEmployee());
+	    }
+	    if (shiftDetails.getShift() != null) {
+	        shift.setShift(shiftDetails.getShift());
+	    }
+	    if (shiftDetails.getActive() != null) {
+	        shift.setActive(shiftDetails.getActive());
+	    }
+
+	    // Validate and update start date
+	    if (shiftDetails.getStartActiveDate() != null) {
+	        if (shift.getEndActiveDate() != null
+	                && shift.getEndActiveDate().before(shiftDetails.getStartActiveDate())) {
+	            throw new IllegalArgumentException("Existing end date cannot be before new start date");
+	        }
+	        shift.setStartActiveDate(shiftDetails.getStartActiveDate());
+	    } else if (shift.getStartActiveDate() == null) {
+	        throw new IllegalArgumentException("Start date must not be null");
+	    }
+
+	    if (shiftDetails.getEndActiveDate() != null) {
+	        Date startDate = shiftDetails.getStartActiveDate() != null ? shiftDetails.getStartActiveDate()
+	                : shift.getStartActiveDate();
+
+	        if (startDate != null && shiftDetails.getEndActiveDate().before(startDate)) {
+	            throw new IllegalArgumentException("End date cannot be before start date");
+	        }
+	        shift.setEndActiveDate(shiftDetails.getEndActiveDate());
+	    } else if (shift.getEndActiveDate() == null) {
+	        throw new IllegalArgumentException("End date must not be null");
+	    }
+
+	    return employeeshiftRepository.save(shift);
+	}
+
+
+	public EmployeeShift getEmployeeShiftById(Integer id) {
+		return employeeshiftRepository.findById(id)
+				.orElseThrow(() -> new EntityNotFoundException("Employee shift not found with id: " + id));
+	}
+
+	// delete by id
+	public void deleteShifts(Integer id) {
+		EmployeeShift shift = getEmployeeShiftById(id);
+		employeeshiftRepository.delete(shift);
+	}
+}

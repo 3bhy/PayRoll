@@ -1,0 +1,58 @@
+package com.project.demo.service;
+
+import org.hl7.fhir.r5.model.Bundle;
+import org.hl7.fhir.r5.model.Patient;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.gclient.StringClientParam;
+
+public class FhirService {
+	 public static void main(String[] args) {
+
+	        // 1️⃣ إنشاء سياق FHIR R5
+	        FhirContext ctx = FhirContext.forR5();
+
+	        // 2️⃣ اختيار مزود HTTP (الافتراضي Apache 4.x كافي)
+	        // ctx.setRestfulClientFactory(new ApacheRestfulClientFactory(ctx));
+
+	        // 3️⃣ إنشاء العميل
+	        String serverBase = "http://hapi.fhir.org/baseR5";
+	        IGenericClient client = ctx.newRestfulGenericClient(serverBase);
+
+	        // 4️⃣ إنشاء مريض جديد
+	        Patient patient = new Patient();
+	        patient.addName().setFamily("Doe").addGiven("John");
+	        patient.setGender(org.hl7.fhir.r5.model.Enumerations.AdministrativeGender.MALE);
+
+	        MethodOutcome outcome = client
+	                .create()
+	                .resource(patient)
+	                .execute();
+
+	        String patientId = outcome.getId().getIdPart();
+	        System.out.println("تم إنشاء مريض جديد. ID: " + patientId);
+
+	        // 5️⃣ قراءة المريض حسب ID
+	        Patient readPatient = client
+	                .read()
+	                .resource(Patient.class)
+	                .withId(patientId)
+	                .execute();
+
+	        System.out.println("تم قراءة المريض: " + readPatient.getNameFirstRep().getGivenAsSingleString() 
+	                + " " + readPatient.getNameFirstRep().getFamily());
+
+	        // 6️⃣ البحث عن مرضى بالاسم
+	        Bundle searchResults = client
+	                .search()
+	                .forResource(Patient.class)
+	                .where(new StringClientParam("family").matches().value("Doe"))
+	                .returnBundle(Bundle.class)
+	                .execute();
+
+	        System.out.println("عدد المرضى الموجودين بالاسم Doe: " + searchResults.getEntry().size());
+	    }
+
+}

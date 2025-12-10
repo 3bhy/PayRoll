@@ -1,0 +1,22 @@
+package com.project.demo.controller;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.project.demo.service.FhirService;
+
+@RestController
+public class FhirController {
+
+    private final FhirService fhirService;
+
+    public PatientController(FhirService fhirService) {
+        this.fhirService = fhirService;
+    }
+
+    @GetMapping("/search")
+    public String searchPatients() {
+        int count = fhirService.searchPatients();
+        return "عدد المرضى بالاسم Doe: " + count;
+    }
+}

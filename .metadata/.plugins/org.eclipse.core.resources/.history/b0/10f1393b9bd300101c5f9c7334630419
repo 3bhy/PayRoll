@@ -1,0 +1,262 @@
+package com.example.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import org.hl7.fhir.r4.model.*;
+import org.springframework.stereotype.Service;
+
+import jakarta.annotation.PostConstruct;
+
+@Service
+public class FhirService {
+    private IGenericClient client;
+    private String currentServer = "https://hapi.fhir.org/baseR4"; // سيرفر عام
+    
+    @PostConstruct
+    public void init() {
+        System.out.println("🚀 بدء خدمة FHIR مع سيرفرات عامة...");
+        
+        try {
+            // جرب عدة سيرفرات
+            String[] servers = {
+                "https://hapi.fhir.org/baseR4",      // الأفضل
+                "https://r4.smarthealthit.org",      // بديل
+                "http://vonk.fire.ly/R4"             // بديل آخر
+            };
+            
+            for (String server : servers) {
+                if (connectToServer(server)) {
+                    this.currentServer = server;
+                    break;
+                }
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ فشل تهيئة الخدمة: " + e.getMessage());
+        }
+    }
+    
+    private boolean connectToServer(String serverUrl) {
+        try {
+            System.out.println("🔗 محاولة الاتصال بـ: " + serverUrl);
+            
+            FhirContext ctx = FhirContext.forR4();
+            this.client = ctx.newRestfulGenericClient(serverUrl);
+            
+            // مهلات طويلة للاتصال العام
+            ctx.getRestfulClientFactory().setConnectTimeout(15000);
+            ctx.getRestfulClientFactory().setSocketTimeout(15000);
+            
+            // اختبار الاتصال
+            CapabilityStatement cs = client.capabilities()
+                .ofType(CapabilityStatement.class)
+                .execute();
+            
+            System.out.println("✅ نجح الاتصال بـ: " + serverUrl);
+            System.out.println("📊 إصدار FHIR: " + cs.getFhirVersion().getDisplay());
+            System.out.println("👥 عدد الموارد: " + (cs.hasRest() ? cs.getRestFirstRep().getResource().size() : "غير معروف"));
+            
+            return true;
+            
+        } catch (Exception e) {
+            System.err.println("   ❌ فشل: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    public String getServerInfo() {
+        return """
+               <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                   <strong>🌐 السيرفر:</strong> %s
+                   <br><strong>📌 النوع:</strong> سيرفر FHIR عام
+                   <br><strong>✅ الميزة:</strong> لا يتطلب Docker
+                   <br><a href="%s/metadata" target="_blank" style="color: #1565c0;">🔗 فتح معلومات السيرفر</a>
+               </div>
+               """.formatted(currentServer, currentServer);
+    }
+    
+    public String searchPatients() {
+        try {
+            System.out.println("🔍 البحث عن المرضى من السيرفر العام...");
+            
+            Bundle results = client.search()
+                .forResource(Patient.class)
+                .count(20)  // زيادة العدد
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            int total = results.getTotal();
+            int returned = results.getEntry().size();
+            
+            StringBuilder html = new StringBuilder();
+            html.append("""
+                       <div style="background: #f1f8e9; padding: 20px; border-radius: 8px; margin: 15px 0;">
+                           <h3 style="margin-top: 0;">📊 نتائج البحث</h3>
+                           <p><strong>إجمالي المرضى في السيرفر:</strong> %d</p>
+                           <p><strong>عدد النتائج المعادة:</strong> %d</p>
+                       </div>
+                       """.formatted(total, returned));
+            
+            if (returned > 0) {
+                html.append("""
+                           <div style="overflow-x: auto;">
+                               <table style="width: 100%%; border-collapse: collapse; margin: 20px 0;">
+                                   <thead>
+                                       <tr style="background: #4CAF50; color: white;">
+                                           <th style="padding: 12px; text-align: left;">#</th>
+                                           <th style="padding: 12px; text-align: left;">المعرف</th>
+                                           <th style="padding: 12px; text-align: left;">الاسم</th>
+                                           <th style="padding: 12px; text-align: left;">الجنس</th>
+                                           <th style="padding: 12px; text-align: left;">الإجراءات</th>
+                                       </tr>
+                                   </thead>
+                                   <tbody>
+                           """);
+                
+                int counter = 1;
+                for (Bundle.BundleEntryComponent entry : results.getEntry()) {
+                    if (entry.getResource() instanceof Patient) {
+                        Patient patient = (Patient) entry.getResource();
+                        
+                        String patientId = extractPatientId(patient.getIdElement().getIdPart());
+                        String name = getPatientName(patient);
+                        String gender = patient.hasGender() ? 
+                            patient.getGender().getDisplay() : "غير معروف";
+                        
+                        html.append("""
+                                   <tr style="border-bottom: 1px solid #ddd;">
+                                       <td style="padding: 10px;">%d</td>
+                                       <td style="padding: 10px;">
+                                           <code style="background: #eee; padding: 2px 5px; border-radius: 3px;">%s</code>
+                                       </td>
+                                       <td style="padding: 10px;">%s</td>
+                                       <td style="padding: 10px;">%s</td>
+                                       <td style="padding: 10px;">
+                                           <a href="%s/Patient/%s" target="_blank" 
+                                              style="background: #2196F3; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none; font-size: 0.9em;">
+                                               🔍 عرض
+                                           </a>
+                                       </td>
+                                   </tr>
+                                   """.formatted(counter, patientId, name, gender, currentServer, patientId));
+                        
+                        counter++;
+                    }
+                }
+                
+                html.append("""
+                               </tbody>
+                           </table>
+                       </div>
+                       """);
+            } else {
+                html.append("""
+                           <div style="text-align: center; padding: 40px; color: #666;">
+                               <div style="font-size: 3em;">📭</div>
+                               <h3>لا توجد نتائج</h3>
+                               <p>لم يتم العثور على مرضى في السيرفر</p>
+                           </div>
+                           """);
+            }
+            
+            return html.toString();
+            
+        } catch (Exception e) {
+            return """
+                   <div style="background: #ffebee; padding: 20px; border-radius: 8px; margin: 15px 0;">
+                       <h3 style="color: #c62828; margin-top: 0;">❌ خطأ في البحث</h3>
+                       <p><strong>الرسالة:</strong> %s</p>
+                       <p style="margin-top: 15px;">
+                           <button onclick="location.reload()" 
+                                   style="background: #c62828; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer;">
+                               🔄 إعادة المحاولة
+                           </button>
+                       </p>
+                   </div>
+                   """.formatted(e.getMessage());
+        }
+    }
+    
+    public String createTestPatient() {
+        try {
+            System.out.println("➕ محاولة إنشاء مريض تجريبي...");
+            
+            // ملاحظة: معظم السيرفرات العامة لا تسمح بإنشاء موارد
+            // لذلك سنعرض رسالة مناسبة
+            
+            return """
+                   <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 15px 0; border: 1px solid #ffeaa7;">
+                       <h3 style="color: #856404; margin-top: 0;">ℹ️ معلومات مهمة</h3>
+                       <p>السيرفرات العامة مثل <strong>%s</strong> لا تسمح عادةً بإنشاء موارد جديدة.</p>
+                       <p>هذا إجراء أمني لمنع إساءة الاستخدام.</p>
+                       
+                       <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                           <strong>💡 ما يمكنك فعله:</strong>
+                           <ul style="margin: 10px 0; padding-left: 20px;">
+                               <li>🔍 البحث عن المرضى الموجودين</li>
+                               <li>📖 قراءة بيانات المرضى</li>
+                               <li>⚙️ تحديث بياناتك المحلية</li>
+                           </ul>
+                       </div>
+                       
+                       <div style="margin-top: 15px;">
+                           <strong>🔧 للحصول على إمكانية الإنشاء:</strong>
+                           <ol style="margin: 10px 0; padding-left: 20px;">
+                               <li>استخدم سيرفر FHIR محلي (يتطلب Docker)</li>
+                               <li>استخدم سيرفر تجريبي خاص</li>
+                               <li>استخدم بيئة تطوير محلية</li>
+                           </ol>
+                       </div>
+                   </div>
+                   """.formatted(currentServer);
+            
+        } catch (Exception e) {
+            return "❌ خطأ: " + e.getMessage();
+        }
+    }
+    
+    public String getSystemInfo() {
+        try {
+            CapabilityStatement cs = client.capabilities()
+                .ofType(CapabilityStatement.class)
+                .execute();
+            
+            return """
+                   <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 15px 0;">
+                       <h3 style="margin-top: 0;">📊 معلومات النظام</h3>
+                       <p><strong>🌐 السيرفر:</strong> %s</p>
+                       <p><strong>📋 الإصدار:</strong> %s</p>
+                       <p><strong>🏢 الناشر:</strong> %s</p>
+                       <p><strong>📅 التاريخ:</strong> %s</p>
+                       <p><strong>✅ الحالة:</strong> <span style="color: #2e7d32;">● نشط</span></p>
+                   </div>
+                   """.formatted(
+                       currentServer,
+                       cs.getFhirVersion().getDisplay(),
+                       cs.hasPublisher() ? cs.getPublisher() : "غير معروف",
+                       cs.hasDate() ? cs.getDateElement().toHumanDisplay() : "غير معروف"
+                   );
+            
+        } catch (Exception e) {
+            return "❌ لا يمكن جلب معلومات النظام: " + e.getMessage();
+        }
+    }
+    
+    private String extractPatientId(String fullId) {
+        if (fullId.contains("/")) {
+            return fullId.substring(fullId.lastIndexOf("/") + 1);
+        }
+        return fullId;
+    }
+    
+    private String getPatientName(Patient patient) {
+        if (!patient.hasName() || patient.getName().isEmpty()) {
+            return "غير معروف";
+        }
+        
+        String given = patient.getNameFirstRep().getGivenAsSingleString();
+        String family = patient.getNameFirstRep().getFamily();
+        
+        return (given != null ? given + " " : "") + (family != null ? family : "");
+    }
+}

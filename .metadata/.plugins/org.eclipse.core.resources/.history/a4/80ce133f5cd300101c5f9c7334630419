@@ -1,0 +1,36 @@
+package com.project.demo;
+
+import org.hl7.fhir.r5.model.Bundle;
+import org.hl7.fhir.r5.model.Enumerations.AdministrativeGender;
+import org.hl7.fhir.r5.model.Patient;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+import com.project.demo.service.FhirService;
+
+@SpringBootApplication
+@EnableScheduling 
+public class DemoApplication {
+	
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+		
+		@Bean
+	    CommandLineRunner run(FhirService fhirService) {
+	        return args -> {
+	            Patient p = fhirService.createPatient("John", "Doe", AdministrativeGender.MALE);
+	            System.out.println("تم إنشاء مريض جديد: " + p.getId());
+
+	            Patient read = fhirService.getPatient(p.getId());
+	            System.out.println("تم قراءة المريض: " + read.getNameFirstRep().getGivenAsSingleString() + " " + read.getNameFirstRep().getFamily());
+
+	            Bundle search = fhirService.searchPatientsByFamily("Doe");
+	            System.out.println("عدد المرضى الموجودين بالاسم Doe: " + search.getEntry().size());
+	        };
+	    
+	}
+
+}

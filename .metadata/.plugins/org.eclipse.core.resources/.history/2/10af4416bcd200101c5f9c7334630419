@@ -1,0 +1,368 @@
+package com.project.demo;
+
+import com.project.demo.entity.Company;
+import com.project.demo.entity.Shift;
+import com.project.demo.entity.ShiftTime;
+import com.project.demo.model.ShiftModel;
+import com.project.demo.model.ShiftTimeModel;
+import com.project.demo.repo.CompanyRepo;
+import com.project.demo.repo.ShiftRepo;
+import com.project.demo.service.ShiftService;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.lang.reflect.Field;
+import java.sql.Time;
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class ShiftTest {
+
+	@Mock
+	private ShiftRepo shiftRepository;
+
+	@Mock
+	private CompanyRepo companyRepository;
+
+	@InjectMocks
+	private ShiftService shiftService;
+
+	private Company company;
+	private Shift shift;
+	private ShiftTime shiftTime;
+	private ShiftModel shiftModel;
+	private ShiftTimeModel shiftTimeModel;
+
+	@BeforeEach
+	void setUp() {
+		company = new Company();
+		company.setCompanyId(1);
+
+		shiftTime = new ShiftTime();
+		shiftTime.setShiftTimeId(1);
+		shiftTime.setDayIndex(1);
+		shiftTime.setFromTime(Time.valueOf("09:00:00"));
+		shiftTime.setToTime(Time.valueOf("17:00:00"));
+		shiftTime.setTotalTime(Time.valueOf("08:00:00"));
+
+		shift = new Shift();
+		shift.setShiftId(1);
+		shift.setShiftName("Morning Shift");
+		shift.setCompany(company);
+		shift.setShiftTimes(new ArrayList<>(Collections.singletonList(shiftTime)));
+
+		shiftTimeModel = new ShiftTimeModel();
+		shiftTimeModel.setDayIndex(1);
+		shiftTimeModel.setFromTime(Time.valueOf("09:00:00"));
+		shiftTimeModel.setToTime(Time.valueOf("17:00:00"));
+		shiftTimeModel.setTotalTime(Time.valueOf("08:00:00"));
+
+		shiftModel = new ShiftModel();
+		shiftModel.setShiftName("Morning Shift");
+		shiftModel.setCompany(1);
+		shiftModel.setShiftTimes(new ArrayList<>(Collections.singletonList(shiftTimeModel)));
+
+		try {
+			Field companyRepoField = ShiftService.class.getDeclaredField("companyRepository");
+			companyRepoField.setAccessible(true);
+			companyRepoField.set(shiftService, companyRepository);
+		} catch (Exception e) {
+		}
+	}
+
+	// ============ CREATE SHIFT TESTS ============
+
+	@Test
+	void testCreateShift_WithCompanyAndShiftTimes() {
+
+		when(companyRepository.findById(1)).thenReturn(Optional.of(company));
+		when(shiftRepository.save(any(Shift.class))).thenReturn(shift);
+
+		Shift result = shiftService.createShift(shiftModel);
+
+		assertNotNull(result);
+		assertEquals("Morning Shift", result.getShiftName());
+		assertEquals(company, result.getCompany());
+
+		verify(companyRepository).findById(1);
+		verify(shiftRepository, times(2)).save(any(Shift.class));
+	}
+
+	@Test
+	void testCreateShift_WithoutShiftTimes() {
+		shiftModel.setShiftTimes(null);
+
+		Shift shiftWithoutTimes = new Shift();
+		shiftWithoutTimes.setShiftId(1);
+		shiftWithoutTimes.setShiftName("Morning Shift");
+		shiftWithoutTimes.setCompany(company);
+		shiftWithoutTimes.setShiftTimes(new ArrayList<>());
+
+		when(companyRepository.findById(1)).thenReturn(Optional.of(company));
+		when(shiftRepository.save(any(Shift.class))).thenReturn(shiftWithoutTimes);
+
+		Shift result = shiftService.createShift(shiftModel);
+
+		assertNotNull(result);
+		assertEquals("Morning Shift", result.getShiftName());
+		assertEquals(company, result.getCompany());
+		assertTrue(result.getShiftTimes().isEmpty());
+
+		verify(companyRepository).findById(1);
+		verify(shiftRepository, times(1)).save(any(Shift.class));
+	}
+
+	@Test
+	void testCreateShift_CompanyNotFound() {
+		when(companyRepository.findById(1)).thenReturn(Optional.empty());
+
+		jakarta.persistence.EntityNotFoundException exception = assertThrows(
+				jakarta.persistence.EntityNotFoundException.class, () -> shiftService.createShift(shiftModel));
+
+		assertEquals("Company not found", exception.getMessage());
+		verify(companyRepository).findById(1);
+		verify(shiftRepository, never()).save(any(Shift.class));
+	}
+
+	// ============ GET SHIFT BY ID TESTS ============
+
+	@Test
+	void testGetShiftById_Found() {
+		when(shiftRepository.findById(1)).thenReturn(Optional.of(shift));
+
+		Shift result = shiftService.getShiftById(1);
+
+		assertNotNull(result);
+		assertEquals(1, result.getShiftId());
+		assertEquals("Morning Shift", result.getShiftName());
+		verify(shiftRepository).findById(1);
+	}
+
+	@Test
+	void testGetShiftById_NotFound() {
+		when(shiftRepository.findById(999)).thenReturn(Optional.empty());
+
+		jakarta.persistence.EntityNotFoundException exception = assertThrows(
+				jakarta.persistence.EntityNotFoundException.class, () -> shiftService.getShiftById(999));
+
+		assertEquals("Shift not found with id: 999", exception.getMessage());
+		verify(shiftRepository).findById(999);
+	}
+
+	// ============ GET SHIFTS BY COMPANY ID TESTS ============
+
+	@Test
+	void testGetShiftsByCompanyId_WithCompanyId() {
+		List<Shift> shifts = Arrays.asList(shift);
+		when(shiftRepository.findByCompanyCompanyId(1)).thenReturn(shifts);
+
+		List<Shift> result = shiftService.getShiftsByCompanyId(1);
+
+		assertNotNull(result);
+		assertEquals(1, result.size());
+		assertEquals("Morning Shift", result.get(0).getShiftName());
+		verify(shiftRepository).findByCompanyCompanyId(1);
+		verify(shiftRepository, never()).findAll();
+	}
+
+	@Test
+	void testGetShiftsByCompanyId_WithoutCompanyId() {
+		List<Shift> shifts = Arrays.asList(shift);
+		when(shiftRepository.findAll()).thenReturn(shifts);
+
+		List<Shift> result = shiftService.getShiftsByCompanyId(null);
+
+		assertNotNull(result);
+		assertEquals(1, result.size());
+		verify(shiftRepository).findAll();
+		verify(shiftRepository, never()).findByCompanyCompanyId(anyInt());
+	}
+
+	@Test
+	void testGetShiftsByCompanyId_EmptyList() {
+		when(shiftRepository.findByCompanyCompanyId(1)).thenReturn(Collections.emptyList());
+
+		List<Shift> result = shiftService.getShiftsByCompanyId(1);
+
+		assertNotNull(result);
+		assertTrue(result.isEmpty());
+		verify(shiftRepository).findByCompanyCompanyId(1);
+	}
+
+	// ============ UPDATE SHIFT TESTS ============
+
+	@Test
+	void testUpdateShift_AllFields() {
+		Shift updatedShift = new Shift();
+		updatedShift.setShiftName("Updated Shift Name");
+		updatedShift.setCompany(company);
+
+		ShiftTime newShiftTime = new ShiftTime();
+		newShiftTime.setShiftTimeId(2);
+		newShiftTime.setDayIndex(2);
+		newShiftTime.setFromTime(Time.valueOf("10:00:00"));
+		newShiftTime.setToTime(Time.valueOf("18:00:00"));
+		newShiftTime.setTotalTime(Time.valueOf("08:00:00"));
+
+		updatedShift.setShiftTimes(new ArrayList<>(Collections.singletonList(newShiftTime)));
+
+		when(shiftRepository.findById(1)).thenReturn(Optional.of(shift));
+		when(shiftRepository.save(any(Shift.class))).thenReturn(updatedShift);
+
+		Shift result = shiftService.updateShift(1, updatedShift);
+
+		assertNotNull(result);
+		assertEquals("Updated Shift Name", result.getShiftName());
+		assertEquals(company, result.getCompany());
+		assertEquals(1, result.getShiftTimes().size());
+		assertEquals(2, result.getShiftTimes().get(0).getDayIndex());
+
+		verify(shiftRepository).findById(1);
+		verify(shiftRepository).save(any(Shift.class));
+	}
+
+	@Test
+	void testUpdateShift_EmptyShiftTimes() {
+		Shift updatedShift = new Shift();
+		updatedShift.setShiftName("Updated Shift Name");
+		updatedShift.setCompany(company);
+		updatedShift.setShiftTimes(new ArrayList<>());
+
+		Shift originalShift = new Shift();
+		originalShift.setShiftId(1);
+		originalShift.setShiftName("Morning Shift");
+		originalShift.setCompany(company);
+		originalShift.setShiftTimes(new ArrayList<>());
+
+		when(shiftRepository.findById(1)).thenReturn(Optional.of(originalShift));
+		when(shiftRepository.save(any(Shift.class))).thenAnswer(invocation -> {
+			Shift savedShift = invocation.getArgument(0);
+			return savedShift;
+		});
+
+		Shift result = shiftService.updateShift(1, updatedShift);
+
+		assertNotNull(result);
+		assertEquals("Updated Shift Name", result.getShiftName());
+		assertTrue(result.getShiftTimes().isEmpty());
+
+		verify(shiftRepository).findById(1);
+		verify(shiftRepository).save(any(Shift.class));
+	}
+
+	@Test
+	void testUpdateShift_ShiftNotFound() {
+		when(shiftRepository.findById(999)).thenReturn(Optional.empty());
+
+		jakarta.persistence.EntityNotFoundException exception = assertThrows(
+				jakarta.persistence.EntityNotFoundException.class, () -> shiftService.updateShift(999, new Shift()));
+
+		assertEquals("Shift not found with id: 999", exception.getMessage());
+		verify(shiftRepository).findById(999);
+		verify(shiftRepository, never()).save(any(Shift.class));
+	}
+
+	// ============ DELETE SHIFT TESTS ============
+
+	@Test
+	void testDeleteShift_Success() {
+		when(shiftRepository.findById(1)).thenReturn(Optional.of(shift));
+		doNothing().when(shiftRepository).delete(shift);
+
+		shiftService.deleteShift(1);
+
+		verify(shiftRepository).findById(1);
+		verify(shiftRepository).delete(shift);
+	}
+
+	@Test
+	void testDeleteShift_ShiftNotFound() {
+		when(shiftRepository.findById(999)).thenReturn(Optional.empty());
+
+		jakarta.persistence.EntityNotFoundException exception = assertThrows(
+				jakarta.persistence.EntityNotFoundException.class, () -> shiftService.deleteShift(999));
+
+		assertEquals("Shift not found with id: 999", exception.getMessage());
+		verify(shiftRepository).findById(999);
+		verify(shiftRepository, never()).delete(any(Shift.class));
+	}
+
+	// ============ EDGE CASES TESTS ============
+
+	@Test
+	void testCreateShift_NullShiftName() {
+		shiftModel.setShiftName(null);
+		shiftModel.setShiftTimes(null);
+
+		Shift shiftWithNullName = new Shift();
+		shiftWithNullName.setShiftId(1);
+		shiftWithNullName.setShiftName(null);
+		shiftWithNullName.setCompany(company);
+
+		when(companyRepository.findById(1)).thenReturn(Optional.of(company));
+		when(shiftRepository.save(any(Shift.class))).thenReturn(shiftWithNullName);
+
+		Shift result = shiftService.createShift(shiftModel);
+
+		assertNotNull(result);
+		assertNull(result.getShiftName());
+		verify(companyRepository).findById(1);
+		verify(shiftRepository, times(1)).save(any(Shift.class)); 
+	}
+
+	@Test
+	void testUpdateShift_NullFields() {
+		Shift updatedShift = new Shift();
+
+		when(shiftRepository.findById(1)).thenReturn(Optional.of(shift));
+		when(shiftRepository.save(any(Shift.class))).thenAnswer(invocation -> {
+			Shift savedShift = invocation.getArgument(0);
+			return savedShift;
+		});
+
+		Shift result = shiftService.updateShift(1, updatedShift);
+
+		assertNotNull(result);
+		assertEquals(shift.getShiftName(), result.getShiftName());
+		assertEquals(shift.getCompany(), result.getCompany());
+		assertEquals(shift.getShiftTimes().size(), result.getShiftTimes().size());
+
+		verify(shiftRepository).findById(1);
+		verify(shiftRepository).save(any(Shift.class));
+	}
+
+	@Test
+	void testCreateShift_MultipleShiftTimes() {
+		ShiftTimeModel shiftTimeModel2 = new ShiftTimeModel();
+		shiftTimeModel2.setDayIndex(2);
+		shiftTimeModel2.setFromTime(Time.valueOf("10:00:00"));
+		shiftTimeModel2.setToTime(Time.valueOf("18:00:00"));
+		shiftTimeModel2.setTotalTime(Time.valueOf("08:00:00"));
+
+		shiftModel.getShiftTimes().add(shiftTimeModel2);
+
+		Shift shiftWithMultipleTimes = new Shift();
+		shiftWithMultipleTimes.setShiftId(1);
+		shiftWithMultipleTimes.setShiftName("Morning Shift");
+		shiftWithMultipleTimes.setCompany(company);
+
+		when(companyRepository.findById(1)).thenReturn(Optional.of(company));
+		when(shiftRepository.save(any(Shift.class))).thenReturn(shiftWithMultipleTimes);
+
+		Shift result = shiftService.createShift(shiftModel);
+
+		assertNotNull(result);
+		verify(companyRepository).findById(1);
+		verify(shiftRepository, times(2)).save(any(Shift.class));
+	}
+
+}

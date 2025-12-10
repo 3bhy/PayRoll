@@ -1,0 +1,59 @@
+package com.example.demo.service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+
+import org.hl7.fhir.instance.model.api.IIdType;
+import org.hl7.fhir.r4.model.*;
+import org.springframework.stereotype.Service;
+
+@Service
+public class FhirClientService {
+
+    public void sendSimplePatient() {
+
+        // Create context + client
+        FhirContext ctx = FhirContext.forR4();
+        IGenericClient client = ctx.newRestfulGenericClient("http://localhost:8084/fhir");
+
+        // Build Patient
+        Patient patient = new Patient();
+        patient.addIdentifier()
+                .setSystem("http://example.org/mrn")
+                .setValue("12345");
+
+        patient.addName()
+                .setFamily("Smith")
+                .addGiven("John");
+
+        // Create (normal create)
+        MethodOutcome outcome1 = client.create()
+                .resource(patient)
+                .prettyPrint()
+                .encodedJson()
+                .execute();
+
+        System.out.println("Created ID: " + outcome1.getId());
+
+        // Conditional create - form 1
+        MethodOutcome outcome2 = client.create()
+                .resource(patient)
+                .conditionalByUrl("Patient?identifier=12345")
+                .execute();
+
+        // Conditional create - form 2
+        MethodOutcome outcome3 = client.create()
+                .resource(patient)
+                .conditional()
+                .where(Patient.IDENTIFIER.exactly()
+                        .systemAndIdentifier("http://example.org/mrn", "12345"))
+                .execute();
+
+        Boolean created = outcome2.getCreated();
+        IIdType id = outcome2.getId();
+
+        System.out.println("Was created? " + created);
+        System.out.println("ID: " + id.getValue());
+    }
+}

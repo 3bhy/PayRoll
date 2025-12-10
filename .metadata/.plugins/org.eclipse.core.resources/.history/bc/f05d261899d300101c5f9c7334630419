@@ -1,0 +1,36 @@
+package com.example.demo.controller;
+
+import com.example.demo.service.FhirService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/fhir")
+public class FhirController {
+    
+    @Autowired
+    private FhirService fhirService;
+    
+    @GetMapping("/test")
+    public String test() {
+        return "FHIR Client is ready!";
+    }
+    
+    @GetMapping("/search")
+    public String search() {
+        fhirService.testSearch();
+        return "Search completed! Check console.";
+    }
+    
+    @PostMapping("/patient")
+    public String createPatient() {
+        fhirService.createSamplePatient();
+        return "Patient creation attempted! Check console.";
+    }
+    
+    @GetMapping("/search/{family}")
+    public String searchByFamily(@PathVariable String family) {
+        fhirService.searchWithCriteria(family);
+        return "Search for family '" + family + "' completed!";
+    }
+}

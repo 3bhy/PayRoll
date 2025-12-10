@@ -1,0 +1,150 @@
+package com.project.demo.service;
+
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CapabilityStatement;
+import org.hl7.fhir.r4.model.Enumerations.AdministrativeGender;
+import org.hl7.fhir.r4.model.Patient;
+import org.springframework.stereotype.Service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.gclient.StringClientParam;
+import jakarta.annotation.PostConstruct;
+@Service
+public class FhirService {
+    private IGenericClient client;
+    
+    @PostConstruct
+    public void initClient() {
+        try {
+            FhirContext ctx = FhirContext.forR5();
+            
+            // جرب استخدام سيرفر R4 (أكثر استقرارًا)
+            String serverBase = "http://hapi.fhir.org/baseR4";
+            
+            // أو جرب هذا السيرفر البديل
+            // String serverBase = "https://hapi.fhir.org/baseR4";
+            
+            this.client = ctx.newRestfulGenericClient(serverBase);
+            
+            // إعداد وقت الانتظار
+            ctx.getRestfulClientFactory().setConnectTimeout(5000);
+            ctx.getRestfulClientFactory().setSocketTimeout(5000);
+            
+            // اختبار الاتصال
+            testConnection();
+            
+        } catch (Exception e) {
+            System.err.println("خطأ في تهيئة العميل: " + e.getMessage());
+        }
+    }
+    
+    private void testConnection() {
+        try {
+            // الطريقة الصحيحة لاختبار الاتصال
+            System.out.println("جاري اختبار الاتصال مع سيرفر FHIR...");
+            
+            // 1. الطريقة الأولى: جلب معرفات النظام (الأبسط)
+            CapabilityStatement capabilities = client
+                .capabilities()
+                .ofType(CapabilityStatement.class)
+                .execute();
+            
+            if (capabilities != null) {
+                System.out.println("✓ تم الاتصال بنجاح مع سيرفر FHIR");
+                System.out.println("إصدار FHIR: " + 
+                    ((CapabilityStatement)capabilities).getFhirVersion().getDisplay());
+            }
+            
+        } catch (Exception e) {
+            System.err.println("✗ فشل اختبار الاتصال: " + e.getMessage());
+            
+            // محاولة بديلة
+            tryAlternativeServer();
+        }
+    }
+    
+    private void tryAlternativeServer() {
+        try {
+            System.out.println("جرب سيرفر بديل...");
+            
+            FhirContext ctx = FhirContext.forR4();
+            String alternativeServer = "https://r4.smarthealthit.org";
+            
+            this.client = ctx.newRestfulGenericClient(alternativeServer);
+            
+            // اختبار بسيط
+            Bundle testResult = client.search()
+                .forResource(Patient.class)
+                .count(1)
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            System.out.println("✓ تم الاتصال بالسيرفر البديل بنجاح");
+            
+        } catch (Exception ex) {
+            System.err.println("✗ فشل جميع محاولات الاتصال: " + ex.getMessage());
+        }
+    }
+    
+    public void searchPatients() {
+        try {
+            System.out.println("بدء البحث عن المرضى...");
+            
+            // استخدم اسم عائلة أكثر شيوعًا للبحث
+            Bundle searchResults = client
+                .search()
+                .forResource(Patient.class)
+                .where(Patient.FAMILY.contains().value("Smith")) // استخدم Smith بدلاً من Doe
+                .count(5) // تحديد عدد النتائج
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            int patientCount = searchResults.getEntry().size();
+            System.out.println("عدد المرضى الموجودين: " + patientCount);
+            
+            if (patientCount > 0) {
+                System.out.println("تفاصيل المرضى:");
+                for (Bundle.BundleEntryComponent entry : searchResults.getEntry()) {
+                    if (entry.getResource() instanceof Patient) {
+                        Patient patient = (Patient) entry.getResource();
+                        
+                        String patientId = patient.getIdElement().getIdPart();
+                        String givenName = patient.getNameFirstRep().getGivenAsSingleString();
+                        String familyName = patient.getNameFirstRep().getFamily();
+                        
+                        System.out.println("🔹 ID: " + patientId + 
+                                         " | الاسم: " + givenName + " " + familyName);
+                    }
+                }
+            } else {
+                System.out.println("لم يتم العثور على مرضى بهذا الاسم. جرب بحثًا آخر:");
+                
+                // بحث بديل
+                searchAlternative();
+            }
+            
+        } catch (Exception e) {
+            System.err.println("خطأ أثناء البحث: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void searchAlternative() {
+        try {
+            // بحث بمعايير أوسع
+            Bundle results = client
+                .search()
+                .forResource(Patient.class)
+                .count(3)
+                .returnBundle(Bundle.class)
+                .execute();
+            
+            System.out.println("تم العثور على " + results.getEntry().size() + " مريض بشكل عام");
+            
+        } catch (Exception e) {
+            System.err.println("فشل البحث البديل: " + e.getMessage());
+        }
+    }
+}

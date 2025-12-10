@@ -1,0 +1,50 @@
+package com.project.demo;
+
+
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+import com.project.demo.service.FhirService;
+
+@SpringBootApplication
+@EnableScheduling 
+public class DemoApplication {
+	
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
+	
+	 @Bean
+	    CommandLineRunner run(FhirService fhirService) {
+	        return args -> {
+	            System.out.println("\n" + "=".repeat(60));
+	            System.out.println("   FHIR DEMO APPLICATION - بدء التشغيل");
+	            System.out.println("=".repeat(60));
+	            
+	            // انتظر 3 ثوان للتأكد من اكتمال التهيئة
+	            System.out.println("⏳ انتظر 3 ثوان لتهيئة العميل...");
+	            Thread.sleep(3000);
+	            
+	            // التحقق من حالة الخدمة
+	            String status = fhirService.getServiceStatus();
+	            System.out.println("📊 حالة الخدمة: " + status);
+	            
+	            // فقط إذا كانت الخدمة جاهزة، نفذ البحث
+	            if (status.contains("✅")) {
+	                System.out.println("\n⚡ بدء البحث عن المرضى...");
+	                fhirService.searchPatients();
+	            } else {
+	                System.err.println("\n❌ لا يمكن المتابعة، الخدمة غير جاهزة");
+	                System.err.println("   تحقق من السجلات أعلاه لمزيد من التفاصيل");
+	            }
+	            
+	            System.out.println("\n" + "=".repeat(60));
+	            System.out.println("   انتهى التشغيل");
+	            System.out.println("=".repeat(60));
+	        };
+	    }
+
+}

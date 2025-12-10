@@ -1,0 +1,62 @@
+package com.project.demo;
+
+
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+import com.project.demo.service.FhirService;
+
+@SpringBootApplication
+@EnableScheduling 
+public class DemoApplication {
+	
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
+	
+	 @Bean
+	    CommandLineRunner run(FhirService fhirService) {
+	        return args -> {
+	            System.out.println("\n" + "=".repeat(60));
+	            System.out.println("   FHIR LOCAL SERVER DEMO");
+	            System.out.println("   السيرفر: http://localhost:8080/fhir");
+	            System.out.println("=".repeat(60));
+	            
+	            // انتظر لتهيئة العميل
+	            Thread.sleep(3000);
+	            
+	            // 1. إنشاء بيانات تجريبية
+	            System.out.println("\n🎯 الخطوة 1: إنشاء مرضى تجريبيين");
+	            fhirService.createSamplePatients();
+	            
+	            Thread.sleep(1000);
+	            
+	            // 2. البحث عن جميع المرضى
+	            System.out.println("\n🎯 الخطوة 2: البحث عن جميع المرضى");
+	            fhirService.testSearch();
+	            
+	            Thread.sleep(1000);
+	            
+	            // 3. البحث بعائلة معينة
+	            System.out.println("\n🎯 الخطوة 3: البحث بعائلة 'علي'");
+	            fhirService.searchWithCriteria("علي");
+	            
+	            System.out.println("\n" + "=".repeat(60));
+	            System.out.println("   ✅ اكتملت التجربة بنجاح!");
+	            System.out.println("=".repeat(60));
+	            
+	            System.out.println("\n🌐 يمكنك الآن الوصول إلى:");
+	            System.out.println("   1. واجهة السيرفر: http://localhost:8080");
+	            System.out.println("   2. نقطة نهاية FHIR: http://localhost:8080/fhir");
+	            System.out.println("   3. واجهة REST API: http://localhost:8081/api/fhir");
+	            
+	            System.out.println("\n📋 أمثلة API:");
+	            System.out.println("   GET  http://localhost:8081/api/fhir/test");
+	            System.out.println("   GET  http://localhost:8081/api/fhir/search");
+	            System.out.println("   POST http://localhost:8081/api/fhir/patient");
+	            System.out.println("   GET  http://localhost:8081/api/fhir/search/علي");
+	        };
+	    }}

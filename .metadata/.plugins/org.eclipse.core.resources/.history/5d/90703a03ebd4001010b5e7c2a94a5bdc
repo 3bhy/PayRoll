@@ -1,0 +1,30 @@
+package com.example.demo.config;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.jpa.provider.JpaSystemProvider;
+import ca.uhn.fhir.rest.server.RestfulServer;
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import com.example.demo.config.PatientResourceProvider;
+@Configuration
+public class FhirJpaServer{
+
+    @Bean
+    public ServletRegistrationBean<RestfulServer> fhirServlet() {
+        RestfulServer server = new RestfulServer(FhirContext.forR4());
+
+        // JPA Provider
+        server.registerProvider(new JpaSystemProvider());
+        server.registerProviders(daoProviders());
+
+        return new ServletRegistrationBean<>(server, "/fhir/*");
+    }
+
+    @Bean
+    public List<IResourceProvider> daoProviders() {
+        return JpaRestfulServerConfiguration.getResourceProviders();
+    }
+}
+

@@ -1,0 +1,44 @@
+package com.project.demo.service;
+
+import org.hl7.fhir.r5.model.Bundle;
+import org.hl7.fhir.r5.model.Enumerations.AdministrativeGender;
+import org.hl7.fhir.r5.model.Patient;
+import org.springframework.stereotype.Service;
+
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.gclient.StringClientParam;
+
+@Service
+public class FhirService {
+	   private final IGenericClient client;
+
+	    public FhirService() {
+	        FhirContext ctx = FhirContext.forR5();
+	        String serverBase = "http://hapi.fhir.org/baseR5";
+	        this.client = ctx.newRestfulGenericClient(serverBase);
+	    }
+
+	    public Patient createPatient(String givenName, String familyName, AdministrativeGender gender) {
+	        Patient patient = new Patient();
+	        patient.addName().setFamily(familyName).addGiven(givenName);
+	        patient.setGender(gender);
+
+	        MethodOutcome outcome = client.create().resource(patient).execute();
+	        patient.setId(outcome.getId().getIdPart());
+	        return patient;
+	    }
+
+	    public Patient getPatient(String id) {
+	        return client.read().resource(Patient.class).withId(id).execute();
+	    }
+
+	    public Bundle searchPatientsByFamily(String familyName) {
+	        return client.search()
+	                     .forResource(Patient.class)
+	                     .where(new StringClientParam("family").matches().value(familyName))
+	                     .returnBundle(Bundle.class)
+	                     .execute();
+	    }
+}
