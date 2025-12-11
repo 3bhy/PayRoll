@@ -13,8 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
+
 
 @Entity
 @Table(name = "shift_time")
@@ -30,8 +29,7 @@ public class ShiftTime {
 	private Shift shiftId;
 
 	@Column(name = "dayIndex")
-	@Min(1)
-	@Max(7)
+	
 	private Integer dayIndex;
 
 	@Column(name = "fromTime")
