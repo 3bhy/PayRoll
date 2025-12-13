@@ -15,6 +15,7 @@ public interface ShiftTimeRepo extends JpaRepository<ShiftTime, Integer> {
 	@Query(value = "SELECT st.* FROM shift_time st WHERE st.shift_id = (SELECT shift_id FROM employee WHERE employee_id = :employeeId)", nativeQuery = true)
 	Optional<ShiftTime> findShiftTimeByEmployeeIdNative(@Param("employeeId") Integer employeeId);
 
+	//FIXME why do you compare shift id using the employeeId?
 	@Query(value = "SELECT st.* FROM shift_time st WHERE st.shift_id = :employeeId", nativeQuery = true)
 	Optional<ShiftTime> findShiftTimeByEmployeeIdDirect(@Param("employeeId") Integer employeeId);
 
