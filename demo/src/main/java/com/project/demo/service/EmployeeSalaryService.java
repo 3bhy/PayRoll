@@ -142,11 +142,12 @@ public class EmployeeSalaryService {
 		} catch (Exception e) {
 			System.out.println("Error calculating unique working days: " + e.getMessage());
 			//FIXME Exception means there is a problem in employee shift times, this can't be absorbed. It has to be re-thrown
+			//FIXME_DONE
 			return 5;
 		}
 	}
 
-	//FIXME incentive sales 
+	//FIXME incentive sales already calculated in attendance so no need to go to the details again
 	private Float calculateIncentive(Employee employee, Integer year, Integer month) {
 		Float incentivePercent = employee.getSalesIncentivePercent() != null ? employee.getSalesIncentivePercent()
 				: 0.0f;
@@ -393,7 +394,8 @@ public class EmployeeSalaryService {
 		EmployeeSalary salary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)
 				.orElseThrow(() -> new EntityNotFoundException("Salary record not found for employee: " + employeeId
 						+ ", year: " + year + ", month: " + month));
-
+		//FIXME if salary locked, the final salary should not change but the can be paid.
+		//this should be moved to the update salary
 		if (Boolean.TRUE.equals(salary.getSalaryLocked())) {
 			throw new RuntimeException("Salary is locked and cannot be modified");
 		}
@@ -402,6 +404,7 @@ public class EmployeeSalaryService {
 		Float totalAmountPaid = currentAmountPaid + amountPaid;
 		salary.setSalaryAmountPaid(totalAmountPaid);
 
+		//FIXME why do you recalculate the salary? salary should not change (locked) once it is paid
 		calculateFinalSalary(salary);
 
 		return employeeSalaryRepo.save(salary);
@@ -448,6 +451,8 @@ public class EmployeeSalaryService {
 		return employeeSalaryRepo.save(employeeSalary);
 	}
 
+	//FIXME if this method called any where will break the employee salary schedule, as it will not be calculated
+	// in addition to that its logic is wrong
 	public EmployeeSalary createEmployeeSalary(Employee employee) {
 		EmployeeSalary employeeSalary = new EmployeeSalary();
 		employeeSalary.setEmployeeId(employee.getEmployee());

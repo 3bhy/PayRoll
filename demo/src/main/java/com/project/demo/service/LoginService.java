@@ -67,6 +67,7 @@ public class LoginService {
 	}
 
 	// Lock login function
+	//FIXME what do you do with the employeeId?
 	public List<Login> lockLogin(Integer employeeId, List<Login> activeLogins) {
 		try {
 			if (activeLogins.isEmpty()) {

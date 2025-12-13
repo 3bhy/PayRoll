@@ -45,6 +45,8 @@ public interface LoginRepo extends JpaRepository<Login, Integer> {
 	// This is updates
 	// Select shift_time of the employee where now is between its (fromTime - 1) and
 	// toTime
+	//FIXME this didn't take into consideration the day
+	//FIXME this method is related to shift time, why is it here in login repo?
 	@Query(value = "SELECT st.* FROM shift_time st " + "JOIN shift s ON s.shift_id = st.shift_id "
 			+ "JOIN employee_shift es ON es.shift_id = s.shift_id " + "WHERE es.employee_id = :employeeId "
 			+ "AND es.active = TRUE " + "AND CURTIME() BETWEEN SUBTIME(st.from_time, '01:00:00') AND st.to_time "

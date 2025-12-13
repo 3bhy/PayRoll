@@ -120,6 +120,8 @@ public class EmployeeSalaryController {
     }
 
     @PostMapping("/final")
+    //FIXME he should not set the final salary, he should set the main salary, incentive, reward, discount ... etc 
+    // and e calculate the final salary.
     public ResponseEntity<?> updateFinalSalary(@RequestParam Integer employeeId, 
                                                @RequestParam Integer year,
                                                @RequestParam Integer month, 

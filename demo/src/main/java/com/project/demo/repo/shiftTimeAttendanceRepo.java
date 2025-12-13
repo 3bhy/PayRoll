@@ -15,6 +15,7 @@ import java.util.List;
 public interface shiftTimeAttendanceRepo extends JpaRepository<ShiftTimeAttendance, Integer> {
 
 	// scheduler
+	//FIXME how this method returns list of logins?
 	@Query("SELECT l FROM ShiftTimeAttendance l WHERE l.totalActiveTime IS NULL AND DATE(l.attendanceDate) >= :targetDate")
 	List<Login> findByTotalActiveTimeIsNullAndAttendanceDate(@Param("targetDate") LocalDate targetDate);
 	

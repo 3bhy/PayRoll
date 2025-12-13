@@ -1,6 +1,7 @@
 package com.project.demo.service;
 
 import java.sql.Time;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -48,9 +49,12 @@ public class shiftTimeAttendanceService {
 		Integer employeeId = login.getEmployee().getEmployee();
 
 		// If attendance doesn't exist, create a new one and save it
+		//FIXME may be there is another attendance for the date of the login but not attached to this login.
+		// this may happen if the employee did a login two times at that date.
 		if (attendance == null) {
 			attendance = new ShiftTimeAttendance();
 			attendance.setEmployee(login.getEmployee());
+			//FIXME using now is rong as attendance should be related to login
 			attendance.setAttendanceDate(java.sql.Date.valueOf(LocalDate.now()));
 
 			attendance = shiftTimeAttendanceRepository.save(attendance);
@@ -68,6 +72,9 @@ public class shiftTimeAttendanceService {
 		shiftTimeAttendanceRepository.save(attendance);
 	}
 
+	//FIXME this method logic and role should be revised
+	//should this method be called to update the attendance with every login (this should be controlled and a way to know if this login calculated or not)
+	// or it should be called for every attendance to calculate its full data (in this case no need to send the login)
 	private void calculateAndSetAttendanceData(Login login, ShiftTimeAttendance attendance, Integer employeeId,
 			ShiftTime shiftTime) {
 		LocalDate attendanceDate;
@@ -84,6 +91,8 @@ public class shiftTimeAttendanceService {
 		}
 
 		// Calculate time difference between activity time and shift time
+		//FIXME if the employee attended 2 shift times
+		// the less and overtime will be replaced and keep just one shift time result.
 		calculateTimeDifference(login, attendance, shiftTime);
 
 		Time totalActiveTime = calculateTotalActiveTimeForEmployee(employeeId, attendanceDate);
@@ -120,12 +129,17 @@ public class shiftTimeAttendanceService {
 				// Convert activity time to minutes
 				LocalTime activityLocalTime = login.getActivityTime().toLocalTime();
 				long activityMinutes = activityLocalTime.getHour() * 60 + activityLocalTime.getMinute();
-
+				
 				// Convert shift total time to minutes
 				LocalTime shiftTotalLocalTime = shiftTime.getTotalTime().toLocalTime();
 				long shiftTotalMinutes = shiftTotalLocalTime.getHour() * 60 + shiftTotalLocalTime.getMinute();
 
 				// Calculate difference
+				// TODO difference beteen 2 times can be calculated by
+//				LocalTime startTime = LocalTime.parse("08:30:00");
+//		        LocalTime stopTime = LocalTime.parse("12:45:30");
+//		        Duration duration = Duration.between(startTime, stopTime);
+
 				long timeDifferenceMinutes = activityMinutes - shiftTotalMinutes;
 
 				System.out.println("Activity Time: " + activityLocalTime + " (" + activityMinutes + " minutes)");
@@ -168,6 +182,7 @@ public class shiftTimeAttendanceService {
 	// Find the nearest shift time for employee based on login time
 	private ShiftTime findNearestShiftTimeForEmployee(Integer employeeId, LocalDateTime loginTime) {
 	    try {
+	    	//FIXME this method does not return the shift time related to the login as it uses the current time not the login time
 	        Optional<ShiftTime> optionalShift = loginRepo.findCurrentShiftTimeForEmployee(employeeId);
 
 	        if (optionalShift.isEmpty()) {
@@ -177,6 +192,7 @@ public class shiftTimeAttendanceService {
 
 	        ShiftTime shiftTime = optionalShift.get();
 
+	        //FIXME why do you do this calculation? you do not use its result.
 	        // Convert times
 	        LocalTime loginLocalTime = loginTime.toLocalTime();
 	        LocalTime shiftFromTime = shiftTime.getFromTime().toLocalTime();
@@ -217,6 +233,7 @@ public class shiftTimeAttendanceService {
 
 		if (employee.getIncentiveOnAllSales()) {
 			// Incentive On All Sales=1
+			//FIXME for one attendance the employee may has more than one shift time
 			ShiftTime shiftTime = getShiftTimeForEmployee(employeeId, date);
 			Float allSalesDuringShift = calculateAllSalesDuringShiftTime(date, shiftTime);
 			return allSalesDuringShift * (incentivePercent / 100);
@@ -272,6 +289,7 @@ public class shiftTimeAttendanceService {
 		return salesRepository.calculateTotalSalesByEmployeeAndDate(employeeId, date);
 	}
 
+	//TODO fix naming conventions
 	public ShiftTimeAttendance getshittimeattendance(Integer shiftTimeAttendanceId) {
 		if (shiftTimeAttendanceId == null) {
 			return null;

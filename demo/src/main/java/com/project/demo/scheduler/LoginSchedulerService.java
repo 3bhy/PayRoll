@@ -20,6 +20,7 @@ public class LoginSchedulerService {
 	private LoginService loginService;
 
 	// lockLogins (runs every 12 Hrs)
+	//TODO no need for a special service class for the scheduler, move this logic to the scheduler
 	public void lockOldLogins() {
 
 		try {
