@@ -107,6 +107,8 @@ public class EmployeeSalaryService {
 		Integer workingDays = calculateUniqueWorkingDays(employee.getEmployee());
 
 		if ("DAY".equals(salaryCycle)) {
+			//FIXME this calculate the salary according to the shift time regardless his attendance !!
+			//Salary should be calculated according to the attendance
 			Integer workingDaysPerMonth = workingDays * 4;
 			return baseSalaryRate * workingDaysPerMonth;
 
@@ -116,9 +118,12 @@ public class EmployeeSalaryService {
 			if (totalActivityTime > 0) {
 				return baseSalaryRate * totalActivityTime;
 			} else {
+				//FIXME here if the employee didn't work through the month,you will give him a salary equals 1 hour!! 
+				// He didn't work this hour!!
 				return baseSalaryRate;
 			}
 		} else {
+			//FIXME there is still a third valid case which is the monthly salary
 	        System.err.println("Warning: Invalid salary cycle '" + salaryCycle + "' for employee " + 
 	                          employee.getEmployee() + ". Using base salary only.");
 	        return baseSalaryRate;   
@@ -132,13 +137,16 @@ public class EmployeeSalaryService {
 	private Integer calculateUniqueWorkingDays(Integer employeeId) {
 		try {
 			List<Integer> distinctDays = shiftTimeRepo.findDistinctDayIndexByEmployeeId(employeeId);
-			return distinctDays != null ? distinctDays.size() : 5;
+			 //FIXME if distinct days are null, the employee has no active shift. So return should be zero
+			return distinctDays != null ? distinctDays.size() : 5; 
 		} catch (Exception e) {
 			System.out.println("Error calculating unique working days: " + e.getMessage());
+			//FIXME Exception means there is a problem in employee shift times, this can't be absorbed. It has to be re-thrown
 			return 5;
 		}
 	}
 
+	//FIXME incentive sales 
 	private Float calculateIncentive(Employee employee, Integer year, Integer month) {
 		Float incentivePercent = employee.getSalesIncentivePercent() != null ? employee.getSalesIncentivePercent()
 				: 0.0f;
@@ -148,13 +156,13 @@ public class EmployeeSalaryService {
 		if (incentivePercent == 0.0f) {
 			return 0.0f;
 		}
-
 		if (Boolean.TRUE.equals(incentiveOnAllSales)) {
 			Object[] shiftTimes = getShiftTimesFromDatabase(employee.getEmployee());
 			LocalTime shiftStart = null;
 	        LocalTime shiftEnd = null;
 	        
 	        if (shiftTimes[0] != null) {
+	        	//FIXME we agreed not to use java.sql package either in service or in entities
 	            if (shiftTimes[0] instanceof java.sql.Time) {
 	                shiftStart = ((java.sql.Time) shiftTimes[0]).toLocalTime();
 	            } else if (shiftTimes[0] instanceof java.time.LocalTime) {
@@ -170,6 +178,7 @@ public class EmployeeSalaryService {
 	            }
 	        }
 			if (shiftStart != null && shiftEnd != null) {
+				//FIXME this returns all sales between the defined times all days. Does the employee work every day at the same time with no weekends?
 				totalSales = salesRepo.calculateAllSalesDuringShiftHours(year, month, shiftStart.toString(),
 						shiftEnd.toString());
 				System.out.println("Mode: ALL TEAM SALES during shift - Total Sales: " + totalSales);
@@ -198,13 +207,15 @@ public class EmployeeSalaryService {
 	}
 
 	// get shift time
+	//FIXME why do you return Object[] not Time[]
 	private Object[] getShiftTimesFromDatabase(Integer employeeId) {
 		try {
+			//FIXME is the employee has only one shift time?
 			Optional<ShiftTime> shiftTime = shiftTimeRepo.findShiftTimeByEmployeeIdNative(employeeId);
 			if (shiftTime.isPresent()) {
 				return new Object[] { shiftTime.get().getFromTime(), shiftTime.get().getToTime() };
 			}
-
+			//XXX what is the difference between this method and the upper (Native) one?
 			shiftTime = shiftTimeRepo.findShiftTimeByEmployeeIdDirect(employeeId);
 			if (shiftTime.isPresent()) {
 				return new Object[] { shiftTime.get().getFromTime(), shiftTime.get().getToTime() };
