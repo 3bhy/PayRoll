@@ -4,6 +4,7 @@ import java.sql.Time;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
@@ -280,10 +281,9 @@ public class LoginService {
 		dummyShiftId.setShiftId(-1);
 
 		dummyShiftTime.setDayIndex(0);
-		dummyShiftTime.setFromTime(Time.valueOf("00:00:00"));
-		dummyShiftTime.setToTime(Time.valueOf("23:59:59"));
-		dummyShiftTime.setTotalTime(Time.valueOf("23:59:59"));
-
+		dummyShiftTime.setFromTime(LocalTime.of(0, 0, 0));      
+		dummyShiftTime.setToTime(LocalTime.of(23, 59, 59));   
+		dummyShiftTime.setTotalTime(LocalTime.of(23, 59, 59));
 		return dummyShiftTime;
 	}
 

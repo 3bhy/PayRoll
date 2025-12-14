@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
 import java.sql.Time;
+import java.time.LocalTime;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -50,9 +51,9 @@ class ShiftTest {
 		shiftTime = new ShiftTime();
 		shiftTime.setShiftTimeId(1);
 		shiftTime.setDayIndex(1);
-		shiftTime.setFromTime(Time.valueOf("09:00:00"));
-		shiftTime.setToTime(Time.valueOf("17:00:00"));
-		shiftTime.setTotalTime(Time.valueOf("08:00:00"));
+		shiftTime.setFromTime(LocalTime.parse("09:00:00"));
+		shiftTime.setToTime(LocalTime.parse("17:00:00"));
+		shiftTime.setTotalTime(LocalTime.parse("08:00:00"));
 
 		shift = new Shift();
 		shift.setShiftId(1);
@@ -62,9 +63,9 @@ class ShiftTest {
 
 		shiftTimeModel = new ShiftTimeModel();
 		shiftTimeModel.setDayIndex(1);
-		shiftTimeModel.setFromTime(Time.valueOf("09:00:00"));
-		shiftTimeModel.setToTime(Time.valueOf("17:00:00"));
-		shiftTimeModel.setTotalTime(Time.valueOf("08:00:00"));
+		shiftTimeModel.setFromTime(LocalTime.parse("09:00:00"));
+		shiftTimeModel.setToTime(LocalTime.parse("17:00:00"));
+		shiftTimeModel.setTotalTime(LocalTime.parse("08:00:00"));
 
 		shiftModel = new ShiftModel();
 		shiftModel.setShiftName("Morning Shift");
@@ -209,9 +210,9 @@ class ShiftTest {
 		ShiftTime newShiftTime = new ShiftTime();
 		newShiftTime.setShiftTimeId(2);
 		newShiftTime.setDayIndex(2);
-		newShiftTime.setFromTime(Time.valueOf("10:00:00"));
-		newShiftTime.setToTime(Time.valueOf("18:00:00"));
-		newShiftTime.setTotalTime(Time.valueOf("08:00:00"));
+		newShiftTime.setFromTime(LocalTime.parse("10:00:00"));
+		newShiftTime.setToTime(LocalTime.parse("18:00:00"));
+		newShiftTime.setTotalTime(LocalTime.parse("08:00:00"));
 
 		updatedShift.setShiftTimes(new ArrayList<>(Collections.singletonList(newShiftTime)));
 
@@ -344,9 +345,9 @@ class ShiftTest {
 	void testCreateShift_MultipleShiftTimes() {
 		ShiftTimeModel shiftTimeModel2 = new ShiftTimeModel();
 		shiftTimeModel2.setDayIndex(2);
-		shiftTimeModel2.setFromTime(Time.valueOf("10:00:00"));
-		shiftTimeModel2.setToTime(Time.valueOf("18:00:00"));
-		shiftTimeModel2.setTotalTime(Time.valueOf("08:00:00"));
+		shiftTimeModel2.setFromTime(LocalTime.parse("10:00:00"));
+		shiftTimeModel2.setToTime(LocalTime.parse("18:00:00"));
+		shiftTimeModel2.setTotalTime(LocalTime.parse("08:00:00"));
 
 		shiftModel.getShiftTimes().add(shiftTimeModel2);
 

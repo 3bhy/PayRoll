@@ -70,9 +70,9 @@ class ShiftTimeAttendanceTest {
 
 		shiftTime = new ShiftTime();
 		shiftTime.setShiftTimeId(1);
-		shiftTime.setFromTime(Time.valueOf("09:00:00"));
-		shiftTime.setToTime(Time.valueOf("17:00:00"));
-		shiftTime.setTotalTime(Time.valueOf("08:00:00"));
+		shiftTime.setFromTime(LocalTime.parse("09:00:00"));
+		shiftTime.setToTime(LocalTime.parse("17:00:00"));
+		shiftTime.setTotalTime(LocalTime.parse("08:00:00"));
 
 		shiftTimeAttendance = new ShiftTimeAttendance();
 		shiftTimeAttendance.setShiftTimeAttendanceId(1);
@@ -96,7 +96,7 @@ class ShiftTimeAttendanceTest {
 	void testUpdateDateAttendance_WithExistingAttendance() {
 		ShiftTime nearestShiftTime = new ShiftTime();
 		nearestShiftTime.setShiftTimeId(1);
-		nearestShiftTime.setTotalTime(Time.valueOf("08:00:00"));
+		nearestShiftTime.setTotalTime(LocalTime.parse("08:00:00"));
 
 		when(shiftRepository.findByEmployeeIdNative(1)).thenReturn(Arrays.asList(nearestShiftTime));
 		when(loginRepo.sumActivityTimeByEmployeeAndDateNative(1, today)).thenReturn(27000L);
@@ -115,7 +115,7 @@ class ShiftTimeAttendanceTest {
 
 		ShiftTime nearestShiftTime = new ShiftTime();
 		nearestShiftTime.setShiftTimeId(1);
-		nearestShiftTime.setTotalTime(Time.valueOf("08:00:00"));
+		nearestShiftTime.setTotalTime(LocalTime.parse("08:00:00"));
 
 		when(shiftTimeAttendanceRepository.save(any(ShiftTimeAttendance.class))).thenReturn(shiftTimeAttendance);
 		when(shiftRepository.findByEmployeeIdNative(1)).thenReturn(Arrays.asList(nearestShiftTime));
@@ -166,7 +166,7 @@ class ShiftTimeAttendanceTest {
 	@Test
 	void testCalculateTimeDifference_Overtime() {
 		ShiftTime shiftTime = new ShiftTime();
-		shiftTime.setTotalTime(Time.valueOf("08:00:00"));
+		shiftTime.setTotalTime(LocalTime.parse("08:00:00"));
 
 		Login login = new Login();
 		login.setActivityTime(Time.valueOf("09:00:00"));
@@ -192,7 +192,7 @@ class ShiftTimeAttendanceTest {
 	@Test
 	void testCalculateTimeDifference_LessTime() {
 		ShiftTime shiftTime = new ShiftTime();
-		shiftTime.setTotalTime(Time.valueOf("08:00:00"));
+		shiftTime.setTotalTime(LocalTime.parse("08:00:00"));
 
 		Login login = new Login();
 		login.setActivityTime(Time.valueOf("07:00:00"));
@@ -218,7 +218,7 @@ class ShiftTimeAttendanceTest {
 	@Test
 	void testCalculateTimeDifference_ExactTime() {
 		ShiftTime shiftTime = new ShiftTime();
-		shiftTime.setTotalTime(Time.valueOf("08:00:00"));
+		shiftTime.setTotalTime(LocalTime.parse("08:00:00"));
 
 		Login login = new Login();
 		login.setActivityTime(Time.valueOf("08:00:00"));
@@ -270,13 +270,13 @@ class ShiftTimeAttendanceTest {
 
 		ShiftTime shift1 = new ShiftTime();
 		shift1.setShiftTimeId(1);
-		shift1.setFromTime(Time.valueOf("09:00:00"));
-		shift1.setToTime(Time.valueOf("17:00:00"));
+		shift1.setFromTime(LocalTime.parse("09:00:00"));
+		shift1.setToTime(LocalTime.parse("17:00:00"));
 
 		ShiftTime shift2 = new ShiftTime();
 		shift2.setShiftTimeId(2);
-		shift2.setFromTime(Time.valueOf("14:00:00"));
-		shift2.setToTime(Time.valueOf("22:00:00"));
+		shift2.setFromTime(LocalTime.parse("14:00:00"));
+		shift2.setToTime(LocalTime.parse("22:00:00"));
 
 		Optional<ShiftTime> shiftTimes = Optional.of(shift1);
 
@@ -435,8 +435,8 @@ class ShiftTimeAttendanceTest {
 
 		ShiftTime shiftTime = new ShiftTime();
 		shiftTime.setShiftTimeId(1);
-		shiftTime.setFromTime(Time.valueOf("09:00:00"));
-		shiftTime.setToTime(Time.valueOf("17:00:00"));
+		shiftTime.setFromTime(LocalTime.parse("09:00:00"));
+		shiftTime.setToTime(LocalTime.parse("17:00:00"));
 
 		when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
 		when(shiftRepository.findByEmployeeIdAndDateNative(1, date)).thenReturn(Optional.of(shiftTime));
@@ -550,8 +550,8 @@ class ShiftTimeAttendanceTest {
 		LocalDate date = LocalDate.of(2025, 12, 1);
 
 		ShiftTime shiftTime = new ShiftTime();
-		shiftTime.setFromTime(Time.valueOf("09:00:00"));
-		shiftTime.setToTime(Time.valueOf("17:00:00"));
+		shiftTime.setFromTime(LocalTime.parse("09:00:00"));
+		shiftTime.setToTime(LocalTime.parse("17:00:00"));
 
 		when(salesRepository.calculateAllSalesDuringShiftTime(any(), any())).thenReturn(10000.0f);
 

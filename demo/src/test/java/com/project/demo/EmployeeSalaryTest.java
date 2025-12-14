@@ -19,6 +19,7 @@ import com.project.demo.service.EmployeeSalaryService;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Optional;
@@ -145,7 +146,7 @@ public class EmployeeSalaryTest {
 
 	@Test
 	void testAddSalaryDiscount_NegativeAmount() {
-		//
+
 		Integer employeeId = 1;
 		Integer year = 2024;
 		Integer month = 12;
@@ -182,19 +183,19 @@ public class EmployeeSalaryTest {
 
 			java.lang.reflect.Method method = employeeSalaryService.getClass().getDeclaredMethod("calculateBaseSalary",
 					Employee.class, Integer.class, Integer.class);
-
 			method.setAccessible(true);
 
-			Float result = (Float) method.invoke(employeeSalaryService, employee, 1, null);
+			Exception exception = assertThrows(Exception.class, () -> {
+				method.invoke(employeeSalaryService, employee, 1, null);
+			});
 
-			assertNotNull(result);
-			System.out.println("Base salary calculated: " + result);
+			assertTrue(exception.getCause() instanceof IllegalArgumentException);
+			assertTrue(exception.getCause().getMessage().contains("Invalid salary cycle"));
 
 		} catch (Exception e) {
-			fail("Exception thrown: " + e.getMessage());
+			fail("Unexpected exception: " + e.getMessage());
 		}
 	}
-
 	// ==================== EMPTY/INVALID DATA TESTS ====================
 
 	@Test
@@ -221,7 +222,8 @@ public class EmployeeSalaryTest {
 		employee.setSalaryCycle("DAY");
 
 		when(employeeRepo.findById(employeeId)).thenReturn(Optional.of(employee));
-		when(shiftTimeRepo.findDistinctDayIndexByEmployeeId(employeeId)).thenReturn(java.util.Arrays.asList(1, 2, 3));
+		when(shiftTimeRepo.findDistinctDaysWithAttendance(employeeId)).thenReturn(Arrays.asList(1, 2, 3));
+
 		when(employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)).thenReturn(Optional.empty());
 		when(employeeSalaryRepo.save(any(EmployeeSalary.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -340,7 +342,7 @@ public class EmployeeSalaryTest {
 			employee.setSalary(5000.0f);
 			employee.setSalaryCycle("DAY");
 
-			when(shiftTimeRepo.findDistinctDayIndexByEmployeeId(1)).thenReturn(Arrays.asList(1, 2, 3, 4, 5));
+			when(shiftTimeRepo.findDistinctDaysWithAttendance(1)).thenReturn(Arrays.asList(1, 2, 3, 4, 5));
 
 			java.lang.reflect.Method method = employeeSalaryService.getClass().getDeclaredMethod("calculateBaseSalary",
 					Employee.class, Integer.class, Integer.class);
@@ -348,7 +350,8 @@ public class EmployeeSalaryTest {
 
 			Float result = (Float) method.invoke(employeeSalaryService, employee, 2024, 12);
 
-			assertEquals(100000.0f, result);
+			assertEquals(25000.0f, result, 0.01);
+
 		} catch (Exception e) {
 			fail("Exception thrown: " + e.getMessage());
 		}
@@ -364,17 +367,9 @@ public class EmployeeSalaryTest {
 			Employee employee = new Employee();
 			employee.setEmployeeId(employeeId);
 			employee.setSalesIncentivePercent(10.0f);
-			employee.setIncentiveOnAllSales(true);
+			employee.setIncentiveOnAllSales(false);
 
-			ShiftTime mockShiftTime = mock(ShiftTime.class);
-
-			when(mockShiftTime.getFromTime()).thenReturn(java.sql.Time.valueOf("09:00:00"));
-			when(mockShiftTime.getToTime()).thenReturn(java.sql.Time.valueOf("17:00:00"));
-
-			when(shiftTimeRepo.findShiftTimeByEmployeeIdNative(employeeId)).thenReturn(Optional.of(mockShiftTime));
-
-			when(salesRepo.calculateAllSalesDuringShiftHours(eq(year), eq(month), anyString(), anyString()))
-					.thenReturn(50000.0f);
+			when(salesRepo.calculateEmployeeSalesByMonth(employeeId, year, month)).thenReturn(50000.0f);
 
 			java.lang.reflect.Method method = employeeSalaryService.getClass().getDeclaredMethod("calculateIncentive",
 					Employee.class, Integer.class, Integer.class);
@@ -390,5 +385,4 @@ public class EmployeeSalaryTest {
 			fail("Test failed: " + e.toString());
 		}
 	}
-
 }

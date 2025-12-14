@@ -1,5 +1,6 @@
 package com.project.demo.entity;
 
+import java.time.LocalDate;
 import java.util.Date;
 
 import jakarta.persistence.Column;
@@ -27,7 +28,7 @@ public class EmployeeSalary {
 	private Integer month;
 
 	@Column(name = "salaryDate")
-	private Date salaryDate;
+	private LocalDate salaryDate;
 
 	@Column(name = "calculatedSalary")
 	private Float calculatedSalary;
@@ -75,7 +76,7 @@ public class EmployeeSalary {
 	public EmployeeSalary() {
 	}
 
-	public EmployeeSalary(Integer employeeId, Integer year, Integer month, Date salaryDate, Float mainSalary,
+	public EmployeeSalary(Integer employeeId, Integer year, Integer month, LocalDate salaryDate, Float mainSalary,
 			Float incentive, Float discount, Float reward) {
 		this.employeeId = employeeId;
 		this.year = year;
@@ -120,11 +121,11 @@ public class EmployeeSalary {
 		this.month = month;
 	}
 
-	public Date getSalaryDate() {
+	public LocalDate getSalaryDate() {
 		return salaryDate;
 	}
 
-	public void setSalaryDate(Date salaryDate) {
+	public void setSalaryDate(LocalDate salaryDate) {
 		this.salaryDate = salaryDate;
 	}
 

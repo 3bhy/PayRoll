@@ -1,6 +1,7 @@
 package com.project.demo.entity;
 
 import java.sql.Time;
+import java.time.LocalTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -33,17 +34,17 @@ public class ShiftTime {
 	private Integer dayIndex;
 
 	@Column(name = "fromTime")
-	private Time fromTime;
+	private LocalTime fromTime;
 
 	@Column(name = "toTime")
-	private Time toTime;
+	private LocalTime toTime;
 	@Column(name = "totalTime")
-	private Time totalTime;
+	private LocalTime totalTime;
 
 	public ShiftTime() {
 	}
 
-	public ShiftTime(Integer shiftTimeId, Shift shiftId, Integer dayIndex, Time fromTime, Time toTime, Time totalTime) {
+	public ShiftTime(Integer shiftTimeId, Shift shiftId, Integer dayIndex, LocalTime fromTime, LocalTime toTime, LocalTime totalTime) {
 		this.shiftTimeId = shiftTimeId;
 		this.shiftId = shiftId;
 		this.dayIndex = dayIndex;
@@ -52,11 +53,11 @@ public class ShiftTime {
 		this.totalTime = totalTime;
 	}
 
-	public Time getTotalTime() {
+	public LocalTime getTotalTime() {
 		return totalTime;
 	}
 
-	public void setTotalTime(Time totalTime) {
+	public void setTotalTime(LocalTime totalTime) {
 		this.totalTime = totalTime;
 	}
 
@@ -84,19 +85,19 @@ public class ShiftTime {
 		this.dayIndex = dayIndex;
 	}
 
-	public Time getFromTime() {
+	public LocalTime getFromTime() {
 		return fromTime;
 	}
 
-	public void setFromTime(Time fromTime) {
+	public void setFromTime(LocalTime fromTime) {
 		this.fromTime = fromTime;
 	}
 
-	public Time getToTime() {
+	public LocalTime getToTime() {
 		return toTime;
 	}
 
-	public void setToTime(Time toTime) {
+	public void setToTime(LocalTime toTime) {
 		this.toTime = toTime;
 	}
 

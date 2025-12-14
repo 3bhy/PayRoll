@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.sql.Time;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -81,9 +82,9 @@ class LoginTest {
 
 		shiftTime = new ShiftTime();
 		shiftTime.setShiftTimeId(1);
-		shiftTime.setFromTime(Time.valueOf("09:00:00"));
-		shiftTime.setToTime(Time.valueOf("17:00:00"));
-		shiftTime.setTotalTime(Time.valueOf("08:00:00"));
+		shiftTime.setFromTime(LocalTime.parse("09:00:00"));
+		shiftTime.setToTime(LocalTime.parse("17:00:00"));
+		shiftTime.setTotalTime(LocalTime.parse("08:00:00"));
 
 		Shift shift = new Shift();
 		shift.setShiftId(1);

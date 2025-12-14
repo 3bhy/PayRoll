@@ -19,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -72,8 +73,8 @@ class LoginControllerTest {
 
 		shiftTime = new ShiftTime();
 		shiftTime.setShiftTimeId(1);
-		shiftTime.setFromTime(java.sql.Time.valueOf("09:00:00"));
-		shiftTime.setToTime(java.sql.Time.valueOf("17:00:00"));
+		shiftTime.setFromTime(LocalTime.parse("09:00:00"));
+		shiftTime.setToTime(LocalTime.parse("17:00:00"));
 	}
 
 	// ============ LOCK LOGIN TESTS ============
@@ -573,21 +574,26 @@ class LoginControllerTest {
 
 	@Test
 	void testGetCurrentShift_Success() {
-		when(loginService.getCurrentShiftTimeForEmployee(100)).thenReturn(shiftTime);
+	    try {
+	       
+	        when(loginService.getCurrentShiftTimeForEmployee(100)).thenReturn(shiftTime);
 
-		ResponseEntity<?> response = loginController.getCurrentShift(100);
+	        ResponseEntity<?> response = loginController.getCurrentShift(100);
 
-		assertNotNull(response);
-		assertEquals(HttpStatus.OK, response.getStatusCode());
-		assertTrue(response.getBody() instanceof ShiftTime);
+	        assertNotNull(response);
+	        assertEquals(HttpStatus.OK, response.getStatusCode());
+	        assertTrue(response.getBody() instanceof ShiftTime);
 
-		ShiftTime result = (ShiftTime) response.getBody();
-		assertEquals(1, result.getShiftTimeId());
-		assertEquals(java.sql.Time.valueOf("09:00:00"), result.getFromTime());
+	        ShiftTime result = (ShiftTime) response.getBody();
+	        assertEquals(1, result.getShiftTimeId());
+	        assertEquals(LocalTime.of(9, 0), result.getFromTime());
 
-		verify(loginService, times(1)).getCurrentShiftTimeForEmployee(100);
+	        verify(loginService, times(1)).getCurrentShiftTimeForEmployee(100);
+	        
+	    } catch (Exception e) {
+	        fail("Test failed: " + e.toString());
+	    }
 	}
-
 	@Test
 	void testGetCurrentShift_NotFound() {
 		when(loginService.getCurrentShiftTimeForEmployee(999)).thenReturn(null);

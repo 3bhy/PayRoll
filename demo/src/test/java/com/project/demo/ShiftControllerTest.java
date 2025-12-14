@@ -53,17 +53,17 @@ class ShiftControllerTest {
 		shift.setShiftName("Morning Shift");
 		shift.setCompany(c);
 		shiftTime = new ShiftTime();
-		shiftTime.setFromTime(java.sql.Time.valueOf(LocalTime.of(9, 0)));
-		shiftTime.setToTime(java.sql.Time.valueOf(LocalTime.of(17, 0)));
-		shiftTime.setTotalTime(java.sql.Time.valueOf(LocalTime.of(8, 0)));
+		shiftTime.setFromTime(LocalTime.of(9, 0));
+		shiftTime.setToTime(LocalTime.of(17, 0));
+		shiftTime.setTotalTime(LocalTime.of(8, 0));
 
 		shiftModel = new ShiftModel();
 		shiftModel.setShiftName("Morning Shift");
 		shiftModel.setCompany(100);
 
 		shiftTimeModel = new ShiftTimeModel();
-		shiftTimeModel.setFromTime(Time.valueOf(LocalTime.of(9, 0)));
-		shiftTimeModel.setToTime(Time.valueOf(LocalTime.of(17, 0)));
+		shiftTimeModel.setFromTime(LocalTime.of(9, 0));
+		shiftTimeModel.setToTime(LocalTime.of(17, 0));
 	}
 
 	// ============ CREATE SHIFT TESTS ============
@@ -206,16 +206,16 @@ class ShiftControllerTest {
 		Shift shiftDetails = new Shift();
 		shiftDetails.setShiftName("Updated Shift Name");
 		ShiftTime shiftTimeDetails = new ShiftTime();
-		shiftTimeDetails.setFromTime(java.sql.Time.valueOf(LocalTime.of(10, 0)));
-		shiftTimeDetails.setToTime(java.sql.Time.valueOf(LocalTime.of(18, 0)));
+		shiftTimeDetails.setFromTime(LocalTime.of(10, 0));
+		shiftTimeDetails.setToTime(LocalTime.of(18, 0));
 
 		Shift updatedShift = new Shift();
 		updatedShift.setShiftId(1);
 		updatedShift.setShiftName("Updated Shift Name");
 		ShiftTime updatedShiftTime = new ShiftTime();
 
-		updatedShiftTime.setFromTime(java.sql.Time.valueOf(LocalTime.of(10, 0)));
-		updatedShiftTime.setToTime(java.sql.Time.valueOf(LocalTime.of(18, 0)));
+		updatedShiftTime.setFromTime(LocalTime.of(10, 0));
+		updatedShiftTime.setToTime(LocalTime.of(18, 0));
 
 		when(shiftService.updateShift(eq(1), any(Shift.class))).thenReturn(updatedShift);
 

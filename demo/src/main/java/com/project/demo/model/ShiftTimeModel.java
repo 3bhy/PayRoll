@@ -1,6 +1,7 @@
 package com.project.demo.model;
 
 import java.sql.Time;
+import java.time.LocalTime;
 
 public class ShiftTimeModel {
 
@@ -10,16 +11,16 @@ public class ShiftTimeModel {
 
 	private Integer dayIndex;
 
-	private Time fromTime;
+	private LocalTime fromTime;
 
-	private Time toTime;
-	private Time totalTime;
+	private LocalTime toTime;
+	private LocalTime totalTime;
 
 	public ShiftTimeModel() {
 	}
 
-	public ShiftTimeModel(Integer shiftTimeId, Integer shift, Integer dayIndex, Time fromTime, Time toTime,
-			Time totalTime) {
+	public ShiftTimeModel(Integer shiftTimeId, Integer shift, Integer dayIndex, LocalTime fromTime, LocalTime toTime,
+			LocalTime totalTime) {
 		this.shiftTimeId = shiftTimeId;
 		this.shift = shift;
 		this.dayIndex = dayIndex;
@@ -28,11 +29,11 @@ public class ShiftTimeModel {
 		this.totalTime = totalTime;
 	}
 
-	public Time getTotalTime() {
+	public LocalTime getTotalTime() {
 		return totalTime;
 	}
 
-	public void setTotalTime(Time totalTime) {
+	public void setTotalTime(LocalTime totalTime) {
 		this.totalTime = totalTime;
 	}
 
@@ -60,19 +61,19 @@ public class ShiftTimeModel {
 		this.dayIndex = dayIndex;
 	}
 
-	public Time getFromTime() {
+	public LocalTime getFromTime() {
 		return fromTime;
 	}
 
-	public void setFromTime(Time fromTime) {
+	public void setFromTime(LocalTime fromTime) {
 		this.fromTime = fromTime;
 	}
 
-	public Time getToTime() {
+	public LocalTime getToTime() {
 		return toTime;
 	}
 
-	public void setToTime(Time toTime) {
+	public void setToTime(LocalTime toTime) {
 		this.toTime = toTime;
 	}
 

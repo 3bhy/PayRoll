@@ -122,7 +122,7 @@ public class shiftTimeAttendanceService {
 				long activityMinutes = activityLocalTime.getHour() * 60 + activityLocalTime.getMinute();
 
 				// Convert shift total time to minutes
-				LocalTime shiftTotalLocalTime = shiftTime.getTotalTime().toLocalTime();
+				LocalTime shiftTotalLocalTime = shiftTime.getTotalTime();
 				long shiftTotalMinutes = shiftTotalLocalTime.getHour() * 60 + shiftTotalLocalTime.getMinute();
 
 				// Calculate difference
@@ -179,8 +179,8 @@ public class shiftTimeAttendanceService {
 
 	        // Convert times
 	        LocalTime loginLocalTime = loginTime.toLocalTime();
-	        LocalTime shiftFromTime = shiftTime.getFromTime().toLocalTime();
-	        LocalTime shiftToTime = shiftTime.getToTime().toLocalTime();
+	        LocalTime shiftFromTime = shiftTime.getFromTime();
+	        LocalTime shiftToTime = shiftTime.getToTime();
 
 	        long diffToStart = calculateTimeDifferenceInMinutes(loginLocalTime, shiftFromTime);
 	        long diffToEnd = calculateTimeDifferenceInMinutes(loginLocalTime, shiftToTime);
@@ -262,8 +262,8 @@ public class shiftTimeAttendanceService {
 			return 0.0f;
 		}
 
-		LocalDateTime shiftStart = LocalDateTime.of(date, shiftTime.getFromTime().toLocalTime());
-		LocalDateTime shiftEnd = LocalDateTime.of(date, shiftTime.getToTime().toLocalTime());
+		LocalDateTime shiftStart = LocalDateTime.of(date, shiftTime.getFromTime());
+		LocalDateTime shiftEnd = LocalDateTime.of(date, shiftTime.getToTime());
 
 		return salesRepository.calculateAllSalesDuringShiftTime(shiftStart, shiftEnd);
 	}

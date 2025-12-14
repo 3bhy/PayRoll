@@ -3,7 +3,7 @@ package com.project.demo.repo;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-
+import java.util.Date;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -31,19 +31,53 @@ public interface SalesRepo extends JpaRepository<Sales, Integer> {
 	Long countByEmployeeAndMonth(@Param("employeeId") Integer employeeId, @Param("year") Integer year,
 			@Param("month") Integer month);
 
-	@Query("SELECT COALESCE(SUM(s.saleAmount), 0) FROM Sales s WHERE s.employee.employeeId = :employeeId "
-			+ "AND YEAR(s.saleDate) = :year AND MONTH(s.saleDate) = :month "
-			+ "AND FUNCTION('TIME', s.saleDate) BETWEEN :shiftStart AND :shiftEnd")
-	Float calculateTotalSalesDuringShift(@Param("employeeId") Integer employeeId, @Param("year") Integer year,
-			@Param("month") Integer month, @Param("shiftStart") LocalTime shiftStart,
-			@Param("shiftEnd") LocalTime shiftEnd);
+	 @Query("SELECT COALESCE(SUM(s.saleAmount), 0) FROM Sales s WHERE s.employee.employeeId = :employeeId "
+	            + "AND YEAR(s.saleDate) = :year AND MONTH(s.saleDate) = :month "
+	            + "AND FUNCTION('TIME', s.saleDate) BETWEEN :shiftStart AND :shiftEnd")
+	    Float calculateTotalSalesDuringShift(@Param("employeeId") Integer employeeId, @Param("year") Integer year,
+	            @Param("month") Integer month, @Param("shiftStart") LocalTime shiftStart,
+	            @Param("shiftEnd") LocalTime shiftEnd);
 
-	@Query(value = "SELECT COALESCE(SUM(sale_amount), 0) FROM sales WHERE employee_id = :employeeId AND YEAR(sale_date) = :year AND MONTH(sale_date) = :month", nativeQuery = true)
-	Float calculateEmployeeSalesByMonth(@Param("employeeId") Integer employeeId, @Param("year") Integer year,
-			@Param("month") Integer month);
+	  @Query(value = """
+	            SELECT COALESCE(SUM(s.sale_amount), 0)
+	            FROM sales s
+	            JOIN shift_time_attendance sta 
+	                ON s.employee_id = sta.employee_id
+	                AND DATE(s.sale_date) = DATE(sta.attendance_date)
+	            WHERE s.employeeId = :employeeId
+	              AND YEAR(s.sale_date) = :year
+	              AND MONTH(s.sale_date) = :month
+	              AND TIME(s.sale_date) BETWEEN :shiftStart AND :shiftEnd  
+	            """, nativeQuery = true)
+	    Float calculateAllSalesDuringShiftHoursForAttendance(
+	            @Param("employeeId") Integer employeeId,
+	            @Param("year") Integer year,
+	            @Param("month") Integer month,
+	            @Param("shiftStart") LocalTime shiftStart,
+	            @Param("shiftEnd") LocalTime shiftEnd
+	        );
+	    
+	 
+	 
 
-	@Query(value = "SELECT COALESCE(SUM(sale_amount), 0) FROM sales WHERE YEAR(sale_date) = :year AND MONTH(sale_date) = :month", nativeQuery = true)
-	Float calculateTotalSalesByMonth(@Param("year") Integer year, @Param("month") Integer month);
+	  @Query("SELECT COALESCE(SUM(s.saleAmount), 0) FROM Sales s " + 
+	           "WHERE s.employee.employeeId = :employeeId " +
+	           "AND YEAR(s.saleDate) = :year " +
+	           "AND MONTH(s.saleDate) = :month")
+	    Float calculateEmployeeSalesByMonth(@Param("employeeId") Integer employeeId,
+	                                        @Param("year") Integer year,
+	                                        @Param("month") Integer month);
+	 
+	 
+	  @Query("SELECT COALESCE(SUM(s.saleAmount), 0) FROM Sales s " +  
+	           "WHERE s.employee.employeeId = :employeeId " +
+	           "AND s.saleDate = :date " +
+	           "AND FUNCTION('TIME', s.saleDate) BETWEEN :startTime AND :endTime")
+	    Float calculateSalesForEmployeeOnDate(
+	            @Param("employeeId") Integer employeeId,
+	            @Param("date") Date date,
+	            @Param("startTime") LocalTime startTime,
+	            @Param("endTime") LocalTime endTime);
 
 	@Query(value = "SELECT COALESCE(SUM(sale_amount), 0) FROM sales "
 			+ "WHERE YEAR(sale_date) = :year AND MONTH(sale_date) = :month "

@@ -1,11 +1,13 @@
 package com.project.demo.service;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.Year;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,9 @@ import com.project.demo.repo.EmployeeSalaryRepo;
 import com.project.demo.repo.SalesRepo;
 import com.project.demo.repo.ShiftTimeRepo;
 import com.project.demo.repo.shiftTimeAttendanceRepo;
+import com.project.demo.specification.ShiftTimeSpec;
+
+import java.util.stream.Collectors;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -32,7 +37,6 @@ public class EmployeeSalaryService {
 
 	@Autowired
 	private SalesRepo salesRepo;
-
 	@Autowired
 	private ShiftTimeRepo shiftTimeRepo;
 	@Autowired
@@ -40,24 +44,24 @@ public class EmployeeSalaryService {
 
 	// Calculate Employee Salary
 	public EmployeeSalary calculateEmployeeSalary(Integer employeeId, Integer year, Integer month) {
-		 if (employeeId == null) {
-		        throw new IllegalArgumentException("Employee ID cannot be null");
-		    }
-		    if (year == null) {
-		        throw new IllegalArgumentException("Year cannot be null");
-		    }
-		    if (month == null) {
-		        throw new IllegalArgumentException("Month cannot be null");
-		    }
-		    if (month < 1 || month > 12) {
-		        throw new IllegalArgumentException("Month must be between 1 and 12");
-		    }
-		    
-		    // ADD YEAR VALIDATION HERE
-		    int currentYear = Year.now().getValue();
-		    if (year < 2000 || year > currentYear + 1) {
-		        throw new IllegalArgumentException("Year must be between 2000 and " + (currentYear + 1));
-		    }
+		if (employeeId == null) {
+			throw new IllegalArgumentException("Employee ID cannot be null");
+		}
+		if (year == null) {
+			throw new IllegalArgumentException("Year cannot be null");
+		}
+		if (month == null) {
+			throw new IllegalArgumentException("Month cannot be null");
+		}
+		if (month < 1 || month > 12) {
+			throw new IllegalArgumentException("Month must be between 1 and 12");
+		}
+
+		// ADD YEAR VALIDATION HERE
+		int currentYear = Year.now().getValue();
+		if (year < 2000 || year > currentYear + 1) {
+			throw new IllegalArgumentException("Year must be between 2000 and " + (currentYear + 1));
+		}
 		Employee employee = employeeRepo.findById(employeeId)
 				.orElseThrow(() -> new EntityNotFoundException("Employee not found with id: " + employeeId));
 
@@ -72,11 +76,11 @@ public class EmployeeSalaryService {
 
 	public void updateSalaryOnAttendanceChange(Integer employeeId, Date attendanceDate) {
 		try {
-			
-			 if (attendanceDate == null) {
-		            System.err.println("Attendance date is null, skipping salary update");
-		            return; 
-		        }
+
+			if (attendanceDate == null) {
+				System.err.println("Attendance date is null, skipping salary update");
+				return;
+			}
 			java.time.LocalDate localDate;
 			if (attendanceDate instanceof java.sql.Date) {
 				localDate = java.time.LocalDate.parse(attendanceDate.toString());
@@ -107,9 +111,11 @@ public class EmployeeSalaryService {
 		Integer workingDays = calculateUniqueWorkingDays(employee.getEmployee());
 
 		if ("DAY".equals(salaryCycle)) {
-			//FIXME this calculate the salary according to the shift time regardless his attendance !!
-			//Salary should be calculated according to the attendance
-			Integer workingDaysPerMonth = workingDays * 4;
+			// FIXME this calculate the salary according to the shift time regardless his
+			// attendance !!
+			// Salary should be calculated according to the attendance
+			// FIXME-DONE
+			Integer workingDaysPerMonth = workingDays;
 			return baseSalaryRate * workingDaysPerMonth;
 
 		} else if ("HOUR".equals(salaryCycle)) {
@@ -118,16 +124,22 @@ public class EmployeeSalaryService {
 			if (totalActivityTime > 0) {
 				return baseSalaryRate * totalActivityTime;
 			} else {
-				//FIXME here if the employee didn't work through the month,you will give him a salary equals 1 hour!! 
+				// FIXME here if the employee didn't work through the month,you will give him a
+				// salary equals 1 hour!!
 				// He didn't work this hour!!
-				return baseSalaryRate;
+				// FIXME-DONE
+
+				return 0f;
 			}
+		} else if (("MONTH".equals(salaryCycle))) {
+			// FIXME there is still a third valid case which is the monthly salary
+			// FIXME-DONE
+			return baseSalaryRate;
 		} else {
-			//FIXME there is still a third valid case which is the monthly salary
-	        System.err.println("Warning: Invalid salary cycle '" + salaryCycle + "' for employee " + 
-	                          employee.getEmployee() + ". Using base salary only.");
-	        return baseSalaryRate;   
-	    }
+			// Invalid salary cycle
+			throw new IllegalArgumentException(
+					"Invalid salary cycle '" + salaryCycle + "' for employee " + employee.getEmployee());
+		}
 	}
 
 	private Float getTotalActivityTime(Integer employeeId, Integer year, Integer month) {
@@ -135,97 +147,70 @@ public class EmployeeSalaryService {
 	}
 
 	private Integer calculateUniqueWorkingDays(Integer employeeId) {
-		try {
-			List<Integer> distinctDays = shiftTimeRepo.findDistinctDayIndexByEmployeeId(employeeId);
-			 //FIXME if distinct days are null, the employee has no active shift. So return should be zero
-			return distinctDays != null ? distinctDays.size() : 5; 
-		} catch (Exception e) {
-			System.out.println("Error calculating unique working days: " + e.getMessage());
-			//FIXME Exception means there is a problem in employee shift times, this can't be absorbed. It has to be re-thrown
-			return 5;
-		}
+		
+			List<Integer> distinctDays = shiftTimeRepo.findDistinctDaysWithAttendance(employeeId);
+			// FIXME if distinct days are null, the employee has no active shift. So return
+			// should be zero
+			// FIXME-DONE
+			return distinctDays != null ? distinctDays.size() : 0;
+		
 	}
 
-	//FIXME incentive sales 
+	// FIXME incentive sales
+	// FIXME-DONE
+
 	private Float calculateIncentive(Employee employee, Integer year, Integer month) {
 		Float incentivePercent = employee.getSalesIncentivePercent() != null ? employee.getSalesIncentivePercent()
 				: 0.0f;
-		Boolean incentiveOnAllSales = employee.getIncentiveOnAllSales();
+		if (incentivePercent == 0.0f)
+			return 0.0f;
+
 		Float totalSales = 0.0f;
 
-		if (incentivePercent == 0.0f) {
-			return 0.0f;
-		}
-		if (Boolean.TRUE.equals(incentiveOnAllSales)) {
-			Object[] shiftTimes = getShiftTimesFromDatabase(employee.getEmployee());
-			LocalTime shiftStart = null;
-	        LocalTime shiftEnd = null;
-	        
-	        if (shiftTimes[0] != null) {
-	        	//FIXME we agreed not to use java.sql package either in service or in entities
-	            if (shiftTimes[0] instanceof java.sql.Time) {
-	                shiftStart = ((java.sql.Time) shiftTimes[0]).toLocalTime();
-	            } else if (shiftTimes[0] instanceof java.time.LocalTime) {
-	                shiftStart = (LocalTime) shiftTimes[0];
-	            }
-	        }
-	        
-	        if (shiftTimes[1] != null) {
-	            if (shiftTimes[1] instanceof java.sql.Time) {
-	                shiftEnd = ((java.sql.Time) shiftTimes[1]).toLocalTime();
-	            } else if (shiftTimes[1] instanceof java.time.LocalTime) {
-	                shiftEnd = (LocalTime) shiftTimes[1];
-	            }
-	        }
-			if (shiftStart != null && shiftEnd != null) {
-				//FIXME this returns all sales between the defined times all days. Does the employee work every day at the same time with no weekends?
-				totalSales = salesRepo.calculateAllSalesDuringShiftHours(year, month, shiftStart.toString(),
-						shiftEnd.toString());
-				System.out.println("Mode: ALL TEAM SALES during shift - Total Sales: " + totalSales);
-
-				if (totalSales == null || totalSales == 0.0f) {
-					System.out.println("No sales during shift hours - No incentive");
-					return 0.0f;
-				}
-			} else {
-				totalSales = 0f;
-				System.out.println("Mode: ALL TEAM SALES (no shift) - Total Sales: " + totalSales);
+		if (Boolean.TRUE.equals(employee.getIncentiveOnAllSales())) {
+			List<ShiftTime> shifts = getShiftTimesFromDatabase(employee.getEmployee());
+			if (shifts.isEmpty())
 				return 0.0f;
+
+			List<Date> attendanceDates = shiftTimeAttendanceRepository.findAttendanceDates(employee.getEmployee(), year,
+					month);
+			if (attendanceDates.isEmpty())
+				return 0.0f;
+
+			for (Date date : attendanceDates) {
+				for (ShiftTime shift : shifts) {
+					LocalTime shiftStart = shift.getFromTime();
+					LocalTime shiftEnd = shift.getToTime();
+
+					if (shiftStart != null && shiftEnd != null) {
+						totalSales += salesRepo.calculateSalesForEmployeeOnDate(employee.getEmployee(), date,
+								shiftStart, shiftEnd);
+					}
+				}
 			}
+			// FIXME this returns all sales between the defined times all days. Does the
+			// employee work every day at the same time with no weekends?
+			// FIXME-DONE
 		} else {
 			totalSales = salesRepo.calculateEmployeeSalesByMonth(employee.getEmployee(), year, month);
 		}
 
-		if (totalSales == null || totalSales == 0.0f) {
-			System.out.println("No sales found - No incentive");
-			return 0.0f;
-		}
-
-		Float calculatedIncentive = totalSales * (incentivePercent / 100);
-		System.out.println("Calculated Incentive: " + calculatedIncentive);
-		return calculatedIncentive;
+		return totalSales * (incentivePercent / 100);
 	}
 
-	// get shift time
-	//FIXME why do you return Object[] not Time[]
-	private Object[] getShiftTimesFromDatabase(Integer employeeId) {
+// Get shift times from database
+	private List<ShiftTime> getShiftTimesFromDatabase(Integer employeeId) {
 		try {
-			//FIXME is the employee has only one shift time?
-			Optional<ShiftTime> shiftTime = shiftTimeRepo.findShiftTimeByEmployeeIdNative(employeeId);
-			if (shiftTime.isPresent()) {
-				return new Object[] { shiftTime.get().getFromTime(), shiftTime.get().getToTime() };
-			}
-			//XXX what is the difference between this method and the upper (Native) one?
-			shiftTime = shiftTimeRepo.findShiftTimeByEmployeeIdDirect(employeeId);
-			if (shiftTime.isPresent()) {
-				return new Object[] { shiftTime.get().getFromTime(), shiftTime.get().getToTime() };
-			}
+			Specification<ShiftTime> spec = Specification.where(ShiftTimeSpec.hasEmployee(employeeId))
+					.and(ShiftTimeSpec.isActive());
 
+			List<ShiftTime> shifts = shiftTimeRepo.findAll(spec);
+
+			return shifts.stream().filter(shift -> shift.getFromTime() != null && shift.getToTime() != null)
+					.collect(Collectors.toList());
 		} catch (Exception e) {
-			System.out.println("Error getting shift times: " + e.getMessage());
+			throw new RuntimeException("Error getting shift times for employee " + employeeId, e);
 		}
-
-		return new Object[] { null, null };
 	}
 
 	private EmployeeSalary createOrUpdateSalary(Employee employee, Integer year, Integer month, Float mainSalary,
@@ -245,7 +230,7 @@ public class EmployeeSalaryService {
 			salary.setEmployeeId(employee.getEmployee());
 			salary.setYear(year);
 			salary.setMonth(month);
-			salary.setSalaryDate(new Date());
+			salary.setSalaryDate(LocalDate.now());
 			salary.setMainSalary(mainSalary);
 			salary.setCalculatedSalary(calculatedSalary);
 			salary.setCalculatedIncentive(calculatedIncentive);
@@ -305,15 +290,15 @@ public class EmployeeSalaryService {
 	// add discount from user
 	public EmployeeSalary addSalaryDiscount(Integer employeeId, Integer year, Integer month, Float amount,
 			String reason) {
-		 if (employeeId == null) {
-		        throw new IllegalArgumentException("Employee ID cannot be null");
-		    }
-		    if (amount == null) {
-		        throw new IllegalArgumentException("Amount cannot be null");
-		    }
-		    if (amount < 0) {
-		        throw new IllegalArgumentException("Amount cannot be negative");
-		    }
+		if (employeeId == null) {
+			throw new IllegalArgumentException("Employee ID cannot be null");
+		}
+		if (amount == null) {
+			throw new IllegalArgumentException("Amount cannot be null");
+		}
+		if (amount < 0) {
+			throw new IllegalArgumentException("Amount cannot be negative");
+		}
 		EmployeeSalary employeeSalary = getOrCreateEmployeeSalary(employeeId, year, month);
 
 		Float newDiscount = (employeeSalary.getDiscount() != null ? employeeSalary.getDiscount() : 0f) + amount;
@@ -328,14 +313,14 @@ public class EmployeeSalaryService {
 	public EmployeeSalary addSalaryReward(Integer employeeId, Integer year, Integer month, Float amount,
 			String reason) {
 		if (employeeId == null) {
-	        throw new IllegalArgumentException("Employee ID cannot be null");
-	    }
-	    if (amount == null) {
-	        throw new IllegalArgumentException("Amount cannot be null");
-	    }
-	    if (amount < 0) {
-	        throw new IllegalArgumentException("Amount cannot be negative");
-	    }
+			throw new IllegalArgumentException("Employee ID cannot be null");
+		}
+		if (amount == null) {
+			throw new IllegalArgumentException("Amount cannot be null");
+		}
+		if (amount < 0) {
+			throw new IllegalArgumentException("Amount cannot be negative");
+		}
 		EmployeeSalary employeeSalary = getOrCreateEmployeeSalary(employeeId, year, month);
 
 		Float newReward = (employeeSalary.getReward() != null ? employeeSalary.getReward() : 0f) + amount;
@@ -351,14 +336,14 @@ public class EmployeeSalaryService {
 	public EmployeeSalary addSalaryIncentive(Integer employeeId, Integer year, Integer month, Float amount,
 			String reason) {
 		if (employeeId == null) {
-	        throw new IllegalArgumentException("Employee ID cannot be null");
-	    }
-	    if (amount == null) {
-	        throw new IllegalArgumentException("Amount cannot be null");
-	    }
-	    if (amount < 0) {
-	        throw new IllegalArgumentException("Amount cannot be negative");
-	    }
+			throw new IllegalArgumentException("Employee ID cannot be null");
+		}
+		if (amount == null) {
+			throw new IllegalArgumentException("Amount cannot be null");
+		}
+		if (amount < 0) {
+			throw new IllegalArgumentException("Amount cannot be negative");
+		}
 		EmployeeSalary employeeSalary = getOrCreateEmployeeSalary(employeeId, year, month);
 
 		Float newIncentive = (employeeSalary.getIncentive() != null ? employeeSalary.getIncentive() : 0f) + amount;
@@ -413,23 +398,23 @@ public class EmployeeSalaryService {
 
 	// update main salary
 	public EmployeeSalary updateBaseSalary(Integer employeeId, Integer year, Integer month, Float newBaseSalary) {
-		   if (employeeId == null) {
-		        throw new IllegalArgumentException("Employee ID cannot be null");
-		    }
-		    if (newBaseSalary == null) {
-		        throw new IllegalArgumentException("Base salary cannot be null");
-		    }
-		    if (newBaseSalary < 0) {
-		        throw new IllegalArgumentException("Base salary cannot be negative");
-		    }
-		    
+		if (employeeId == null) {
+			throw new IllegalArgumentException("Employee ID cannot be null");
+		}
+		if (newBaseSalary == null) {
+			throw new IllegalArgumentException("Base salary cannot be null");
+		}
+		if (newBaseSalary < 0) {
+			throw new IllegalArgumentException("Base salary cannot be negative");
+		}
+
 		EmployeeSalary employeeSalary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)
 				.orElseGet(() -> {
 					EmployeeSalary newSalary = new EmployeeSalary();
 					newSalary.setEmployeeId(employeeId);
 					newSalary.setYear(year);
 					newSalary.setMonth(month);
-					newSalary.setSalaryDate(new Date());
+					newSalary.setSalaryDate(LocalDate.now());
 					return newSalary;
 				});
 

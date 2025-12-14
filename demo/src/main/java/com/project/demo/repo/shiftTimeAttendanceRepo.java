@@ -9,6 +9,7 @@ import com.project.demo.entity.Login;
 import com.project.demo.entity.ShiftTimeAttendance;
 
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 
 @Repository
@@ -23,5 +24,14 @@ public interface shiftTimeAttendanceRepo extends JpaRepository<ShiftTimeAttendan
 	    Float findTotalActivityTimeByEmployeeAndMonth(@Param("employeeId") Integer employeeId, 
 	                                                 @Param("year") Integer year, 
 	                                                 @Param("month") Integer month);
+
+	  @Query("SELECT DISTINCT st.attendanceDate " +
+		       "FROM ShiftTimeAttendance st " +
+		       "WHERE st.employee.employeeId = :employeeId " +
+		       "AND FUNCTION('YEAR', st.attendanceDate) = :year " +
+		       "AND FUNCTION('MONTH', st.attendanceDate) = :month")
+		List<Date> findAttendanceDates(@Param("employeeId") Integer employeeId,
+		                               @Param("year") Integer year,
+		                               @Param("month") Integer month);
 
 }
