@@ -81,10 +81,8 @@ class LoginControllerTest {
 
 	@Test
 	void testLockLogin_Success() {
-		// Mock finding active login
 		when(loginService.findActiveLoginWithinShift(100)).thenReturn(Optional.of(login));
 
-		// Mock the actual locking
 		doNothing().when(loginService).lockLoginByEmployeeId(100);
 
 		ResponseEntity<?> response = loginController.lockLogin(100);
@@ -103,7 +101,6 @@ class LoginControllerTest {
 
 	@Test
 	void testLockLogin_InvalidEmployeeId() {
-		// Mock no active login found
 		when(loginService.findActiveLoginWithinShift(999)).thenReturn(Optional.empty());
 
 		ResponseEntity<?> response = loginController.lockLogin(999);

@@ -1,6 +1,5 @@
 package com.project.demo.model;
 
-import java.sql.Time;
 import java.time.LocalTime;
 
 public class ShiftTimeModel {

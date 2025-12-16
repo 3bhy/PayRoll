@@ -282,7 +282,6 @@ class EmployeeShiftControllerTest {
 	}
 
 	// ============ GET SHIFTS BY FILTERS TESTS ============
-
 	@Test
 	void testGetShiftsByFilters_AllFilters() {
 		Date startDate = Date.valueOf("2024-01-01");

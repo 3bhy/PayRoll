@@ -1,8 +1,7 @@
 package com.project.demo.entity;
 
-import java.sql.Time;
-
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -32,19 +31,19 @@ public class ShiftTimeAttendance {
     private Employee employee;
     
     @Column(name = "attendanceDate")
-    private Date attendanceDate;
+    private LocalDate attendanceDate;
     
     @Column(name = "overTime")
-    private Time overTime;
+    private LocalTime overTime;
     
     @Column(name = "lessTime")
-    private Time lessTime;
+    private LocalTime lessTime;
     
     @Column(name = "totalActiveTime")
-    private Time totalActiveTime;
+    private LocalTime totalActiveTime;
     
     @Column(name = "totalOverTime")
-    private Time totalOverTime;
+    private LocalTime totalOverTime;
     
     @Column(name = "totalIncentiveSales")
     private Float totalIncentiveSales;
@@ -57,8 +56,8 @@ public class ShiftTimeAttendance {
     public ShiftTimeAttendance() {}
 
 
-	public ShiftTimeAttendance(Integer shiftTimeAttendanceId, Employee employee, Date attendanceDate,
-			Time overTime, Time lessTime, Time totalActiveTime, Time totalOverTime,
+	public ShiftTimeAttendance(Integer shiftTimeAttendanceId, Employee employee, LocalDate attendanceDate,
+			LocalTime overTime, LocalTime lessTime, LocalTime totalActiveTime, LocalTime totalOverTime,
 			Float totalIncentiveSales) {
 		
 		this.shiftTimeAttendanceId = shiftTimeAttendanceId;
@@ -92,52 +91,52 @@ public class ShiftTimeAttendance {
 	}
 
 
-	public Date getAttendanceDate() {
+	public LocalDate getAttendanceDate() {
 		return attendanceDate;
 	}
 
 
-	public void setAttendanceDate(Date attendanceDate) {
-		this.attendanceDate = attendanceDate;
+	public void setAttendanceDate(LocalDate loginDate) {
+		this.attendanceDate = loginDate;
 	}
 
 
-	public Time getOverTime() {
+	public LocalTime getOverTime() {
 		return overTime;
 	}
 
 
-	public void setOverTime(Time overTime) {
+	public void setOverTime(LocalTime overTime) {
 		this.overTime = overTime;
 	}
 
 
-	public Time getLessTime() {
+	public LocalTime getLessTime() {
 		return lessTime;
 	}
 
 
-	public void setLessTime(Time lessTime) {
+	public void setLessTime(LocalTime lessTime) {
 		this.lessTime = lessTime;
 	}
 
 
-	public Time getTotalActiveTime() {
+	public LocalTime getTotalActiveTime() {
 		return totalActiveTime;
 	}
 
 
-	public void setTotalActiveTime(Time totalActiveTime) {
+	public void setTotalActiveTime(LocalTime totalActiveTime) {
 		this.totalActiveTime = totalActiveTime;
 	}
 
 
-	public Time getTotalOverTime() {
+	public LocalTime getTotalOverTime() {
 		return totalOverTime;
 	}
 
 
-	public void setTotalOverTime(Time totalOverTime) {
+	public void setTotalOverTime(LocalTime totalOverTime) {
 		this.totalOverTime = totalOverTime;
 	}
 

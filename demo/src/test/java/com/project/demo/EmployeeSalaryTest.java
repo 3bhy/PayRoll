@@ -8,7 +8,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.project.demo.entity.Employee;
 import com.project.demo.entity.EmployeeSalary;
-import com.project.demo.entity.ShiftTime;
 import com.project.demo.repo.EmployeeRepo;
 import com.project.demo.repo.EmployeeSalaryRepo;
 import com.project.demo.repo.SalesRepo;
@@ -19,9 +18,8 @@ import com.project.demo.service.EmployeeSalaryService;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.time.LocalTime;
+import java.time.LocalDate;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
@@ -82,7 +80,7 @@ public class EmployeeSalaryTest {
 	@Test
 	void testUpdateSalaryOnAttendanceChange_NullDate() {
 		Integer employeeId = 1;
-		Date attendanceDate = null;
+		LocalDate attendanceDate = null;
 
 		employeeSalaryService.updateSalaryOnAttendanceChange(employeeId, attendanceDate);
 
@@ -264,7 +262,7 @@ public class EmployeeSalaryTest {
 		EmployeeSalary result = employeeSalaryService.addSalaryDiscount(employeeId, year, month, discountAmount,
 				reason);
 
-		assertNull(result.getDiscountReason());
+		assertEquals("", result.getDiscountReason());
 
 	}
 
@@ -357,32 +355,5 @@ public class EmployeeSalaryTest {
 		}
 	}
 
-	@Test
-	void testCalculateIncentive_WithAllSales() {
-		try {
-			Integer employeeId = 1;
-			Integer year = 2024;
-			Integer month = 12;
-
-			Employee employee = new Employee();
-			employee.setEmployeeId(employeeId);
-			employee.setSalesIncentivePercent(10.0f);
-			employee.setIncentiveOnAllSales(false);
-
-			when(salesRepo.calculateEmployeeSalesByMonth(employeeId, year, month)).thenReturn(50000.0f);
-
-			java.lang.reflect.Method method = employeeSalaryService.getClass().getDeclaredMethod("calculateIncentive",
-					Employee.class, Integer.class, Integer.class);
-			method.setAccessible(true);
-
-			Float incentive = (Float) method.invoke(employeeSalaryService, employee, year, month);
-
-			assertNotNull(incentive, "Incentive should not be null");
-			assertEquals(5000.0f, incentive, 0.01, "Incentive should be 10% of 50000");
-
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail("Test failed: " + e.toString());
-		}
-	}
+	
 }

@@ -1,27 +1,21 @@
 package com.project.demo.service;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.Year;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.jpa.domain.Specification;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.project.demo.entity.Employee;
 import com.project.demo.entity.EmployeeSalary;
-import com.project.demo.entity.ShiftTime;
 import com.project.demo.repo.EmployeeRepo;
 import com.project.demo.repo.EmployeeSalaryRepo;
-import com.project.demo.repo.SalesRepo;
 import com.project.demo.repo.ShiftTimeRepo;
 import com.project.demo.repo.shiftTimeAttendanceRepo;
-import com.project.demo.specification.ShiftTimeSpec;
 
-import java.util.stream.Collectors;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -36,11 +30,12 @@ public class EmployeeSalaryService {
 	private EmployeeRepo employeeRepo;
 
 	@Autowired
-	private SalesRepo salesRepo;
-	@Autowired
 	private ShiftTimeRepo shiftTimeRepo;
 	@Autowired
 	private shiftTimeAttendanceRepo shiftTimeAttendanceRepository;
+	@Lazy
+	@Autowired
+	private shiftTimeAttendanceService shiftTimeAttendance;
 
 	// Calculate Employee Salary
 	public EmployeeSalary calculateEmployeeSalary(Integer employeeId, Integer year, Integer month) {
@@ -57,7 +52,6 @@ public class EmployeeSalaryService {
 			throw new IllegalArgumentException("Month must be between 1 and 12");
 		}
 
-		// ADD YEAR VALIDATION HERE
 		int currentYear = Year.now().getValue();
 		if (year < 2000 || year > currentYear + 1) {
 			throw new IllegalArgumentException("Year must be between 2000 and " + (currentYear + 1));
@@ -69,27 +63,20 @@ public class EmployeeSalaryService {
 
 		Float calculatedSalary = calculateBaseSalary(employee, year, month);
 
-		Float calculatedIncentive = calculateIncentive(employee, year, month);
-
+		Float calculatedIncentive = calculateMonthlyIncentive(employee.getEmployee(), year, month);
 		return createOrUpdateSalary(employee, year, month, mainSalary, calculatedSalary, calculatedIncentive);
+		
 	}
 
-	public void updateSalaryOnAttendanceChange(Integer employeeId, Date attendanceDate) {
+	public void updateSalaryOnAttendanceChange(Integer employeeId, LocalDate attendanceDate) {
 		try {
 
 			if (attendanceDate == null) {
 				System.err.println("Attendance date is null, skipping salary update");
 				return;
 			}
-			java.time.LocalDate localDate;
-			if (attendanceDate instanceof java.sql.Date) {
-				localDate = java.time.LocalDate.parse(attendanceDate.toString());
-			} else {
-				localDate = attendanceDate.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
-			}
-
-			Integer year = localDate.getYear();
-			Integer month = localDate.getMonthValue();
+			Integer year = attendanceDate.getYear();
+			Integer month = attendanceDate.getMonthValue();
 
 			calculateEmployeeSalary(employeeId, year, month);
 		} catch (Exception e) {
@@ -120,7 +107,6 @@ public class EmployeeSalaryService {
 
 		} else if ("HOUR".equals(salaryCycle)) {
 			Float totalActivityTime = getTotalActivityTime(employee.getEmployee(), year, month);
-
 			if (totalActivityTime > 0) {
 				return baseSalaryRate * totalActivityTime;
 			} else {
@@ -143,74 +129,29 @@ public class EmployeeSalaryService {
 	}
 
 	private Float getTotalActivityTime(Integer employeeId, Integer year, Integer month) {
-		return shiftTimeAttendanceRepository.findTotalActivityTimeByEmployeeAndMonth(employeeId, year, month);
+	    String totalTimeStr = shiftTimeAttendanceRepository.findTotalActivityTimeByEmployeeAndMonth(employeeId, year, month);
+
+	    if (totalTimeStr == null || totalTimeStr.isEmpty()) {
+	        return 0f;
+	    }
+
+	    String[] parts = totalTimeStr.split(":");
+	    int hours = Integer.parseInt(parts[0]);
+	    int minutes = Integer.parseInt(parts[1]);
+	    int seconds = Integer.parseInt(parts[2]);
+
+	    return hours + (minutes / 60f) + (seconds / 3600f);
 	}
+
 
 	private Integer calculateUniqueWorkingDays(Integer employeeId) {
-		
-			List<Integer> distinctDays = shiftTimeRepo.findDistinctDaysWithAttendance(employeeId);
-			// FIXME if distinct days are null, the employee has no active shift. So return
-			// should be zero
-			// FIXME-DONE
-			return distinctDays != null ? distinctDays.size() : 0;
-		
-	}
 
-	// FIXME incentive sales
-	// FIXME-DONE
+		List<Integer> distinctDays = shiftTimeRepo.findDistinctDaysWithAttendance(employeeId);
+		// FIXME if distinct days are null, the employee has no active shift. So return
+		// should be zero
+		// FIXME-DONE
+		return distinctDays != null ? distinctDays.size() : 0;
 
-	private Float calculateIncentive(Employee employee, Integer year, Integer month) {
-		Float incentivePercent = employee.getSalesIncentivePercent() != null ? employee.getSalesIncentivePercent()
-				: 0.0f;
-		if (incentivePercent == 0.0f)
-			return 0.0f;
-
-		Float totalSales = 0.0f;
-
-		if (Boolean.TRUE.equals(employee.getIncentiveOnAllSales())) {
-			List<ShiftTime> shifts = getShiftTimesFromDatabase(employee.getEmployee());
-			if (shifts.isEmpty())
-				return 0.0f;
-
-			List<Date> attendanceDates = shiftTimeAttendanceRepository.findAttendanceDates(employee.getEmployee(), year,
-					month);
-			if (attendanceDates.isEmpty())
-				return 0.0f;
-
-			for (Date date : attendanceDates) {
-				for (ShiftTime shift : shifts) {
-					LocalTime shiftStart = shift.getFromTime();
-					LocalTime shiftEnd = shift.getToTime();
-
-					if (shiftStart != null && shiftEnd != null) {
-						totalSales += salesRepo.calculateSalesForEmployeeOnDate(employee.getEmployee(), date,
-								shiftStart, shiftEnd);
-					}
-				}
-			}
-			// FIXME this returns all sales between the defined times all days. Does the
-			// employee work every day at the same time with no weekends?
-			// FIXME-DONE
-		} else {
-			totalSales = salesRepo.calculateEmployeeSalesByMonth(employee.getEmployee(), year, month);
-		}
-
-		return totalSales * (incentivePercent / 100);
-	}
-
-// Get shift times from database
-	private List<ShiftTime> getShiftTimesFromDatabase(Integer employeeId) {
-		try {
-			Specification<ShiftTime> spec = Specification.where(ShiftTimeSpec.hasEmployee(employeeId))
-					.and(ShiftTimeSpec.isActive());
-
-			List<ShiftTime> shifts = shiftTimeRepo.findAll(spec);
-
-			return shifts.stream().filter(shift -> shift.getFromTime() != null && shift.getToTime() != null)
-					.collect(Collectors.toList());
-		} catch (Exception e) {
-			throw new RuntimeException("Error getting shift times for employee " + employeeId, e);
-		}
 	}
 
 	private EmployeeSalary createOrUpdateSalary(Employee employee, Integer year, Integer month, Float mainSalary,
@@ -245,14 +186,23 @@ public class EmployeeSalaryService {
 		return employeeSalaryRepo.save(salary);
 	}
 
-	public EmployeeSalary addFinalSalary(Integer employeeId, Integer year, Integer month, Float finalSalary) {
-		EmployeeSalary employeeSalary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)
-				.orElseThrow(() -> new EntityNotFoundException("Salary record not found for employee: " + employeeId
-						+ ", year: " + year + ", month: " + month));
+	public EmployeeSalary calculateAndStoreFinalSalary(EmployeeSalary employeeSalary) {
 
-		employeeSalary.setFinalSalary(finalSalary);
-		calculateFinalSalary(employeeSalary);
+		if (employeeSalary == null)
+			throw new IllegalArgumentException("Salary cannot be null");
 
+		Float mainSalary = employeeSalary.getMainSalary() != null ? employeeSalary.getMainSalary() : 0f;
+		Float reward = employeeSalary.getReward() != null ? employeeSalary.getReward() : 0f;
+		Float discount = employeeSalary.getDiscount() != null ? employeeSalary.getDiscount() : 0f;
+		Float incentive = employeeSalary.getIncentive() != null ? employeeSalary.getIncentive() : 0f;
+
+		Float finalAmount = mainSalary + reward + incentive - discount;
+		employeeSalary.setFinalSalary(finalAmount);
+		
+		if (employeeSalary.getSalaryAmountPaid() != null && employeeSalary.getFinalSalary() != null) {
+			Float paymentDifference = employeeSalary.getFinalSalary() - employeeSalary.getSalaryAmountPaid();
+			employeeSalary.setSalaryDifference(paymentDifference);
+		}
 		return employeeSalaryRepo.save(employeeSalary);
 	}
 
@@ -268,23 +218,7 @@ public class EmployeeSalaryService {
 
 		Float calculatedFinalSalary = calculatedSalary + calculatedIncentive - calculatedDiscount;
 		employeeSalary.setCalculatedFinalSalary(calculatedFinalSalary);
-
-		Float finalSalary = employeeSalary.getFinalSalary();
-		if (finalSalary != null) {
-			Float incentive = employeeSalary.getIncentive() != null ? employeeSalary.getIncentive() : 0f;
-			Float discount = employeeSalary.getDiscount() != null ? employeeSalary.getDiscount() : 0f;
-			Float Reward = employeeSalary.getReward() != null ? employeeSalary.getReward() : 0f;
-
-			// FinalSalary: from user + incentive - discount + reward
-			Float adjustedFinalSalary = finalSalary + incentive - discount + Reward;
-			employeeSalary.setFinalSalary(adjustedFinalSalary);
-
-		}
-
-		if (employeeSalary.getSalaryAmountPaid() != null && employeeSalary.getFinalSalary() != null) {
-			Float paymentDifference = employeeSalary.getFinalSalary() - employeeSalary.getSalaryAmountPaid();
-			employeeSalary.setSalaryDifference(paymentDifference);
-		}
+		
 	}
 
 	// add discount from user
@@ -303,9 +237,11 @@ public class EmployeeSalaryService {
 
 		Float newDiscount = (employeeSalary.getDiscount() != null ? employeeSalary.getDiscount() : 0f) + amount;
 		employeeSalary.setDiscount(newDiscount);
-		employeeSalary.setDiscountReason(reason);
+		employeeSalary.setDiscountReason(reason != null ? reason : "");
 
 		calculateFinalSalary(employeeSalary);
+		calculateAndStoreFinalSalary(employeeSalary);
+
 		return employeeSalaryRepo.save(employeeSalary);
 	}
 
@@ -328,6 +264,7 @@ public class EmployeeSalaryService {
 		employeeSalary.setRewardReason(reason);
 
 		calculateFinalSalary(employeeSalary);
+		calculateAndStoreFinalSalary(employeeSalary);
 
 		return employeeSalaryRepo.save(employeeSalary);
 	}
@@ -349,7 +286,7 @@ public class EmployeeSalaryService {
 		Float newIncentive = (employeeSalary.getIncentive() != null ? employeeSalary.getIncentive() : 0f) + amount;
 		employeeSalary.setIncentive(newIncentive);
 
-		calculateFinalSalary(employeeSalary);
+		calculateAndStoreFinalSalary(employeeSalary);
 
 		return employeeSalaryRepo.save(employeeSalary);
 	}
@@ -368,9 +305,25 @@ public class EmployeeSalaryService {
 
 		Float mainSalary = getMainSalary(employee);
 		Float calculatedSalary = calculateBaseSalary(employee, year, month);
-		Float calculatedIncentive = calculateIncentive(employee, year, month);
+
+		Float calculatedIncentive = calculateMonthlyIncentive(employeeId, year, month);
 
 		return createOrUpdateSalary(employee, year, month, mainSalary, calculatedSalary, calculatedIncentive);
+	}
+
+//Calculate Incentive instesd of shift and attendance and incentive on all sales
+	private Float calculateMonthlyIncentive(Integer employeeId, Integer year, Integer month) {
+		Float totalMonthlyIncentive = 0.0f;
+
+		LocalDate startDate = LocalDate.of(year, month, 1);
+		LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+
+		for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+			Float dailyIncentive = shiftTimeAttendance.calculateTotalIncentiveSales(employeeId, date);
+			totalMonthlyIncentive += dailyIncentive != null ? dailyIncentive : 0.0f;
+		}
+
+		return totalMonthlyIncentive;
 	}
 
 	// pay salary

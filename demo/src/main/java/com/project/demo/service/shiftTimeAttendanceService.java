@@ -1,13 +1,13 @@
 package com.project.demo.service;
 
-import java.sql.Time;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneId;
-import java.util.Date;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -29,8 +29,11 @@ public class shiftTimeAttendanceService {
 	@Autowired
 	private shiftTimeAttendanceRepo shiftTimeAttendanceRepository;
 	@Autowired
+	private EmployeeSalaryService employeeSalaryService;
+	@Autowired
 	private ShiftTimeRepo shiftRepository;
-
+	@Lazy
+	@Autowired
 	private LoginService loginService;
 
 	@Autowired
@@ -41,196 +44,400 @@ public class shiftTimeAttendanceService {
 	@Autowired
 	private LoginRepo loginRepo;
 
-	
+	// If attendance doesn't exist, create a new one and save it
+	// FIXME may be there is another attendance for the date of the login but not
+	// attached to this login.
+	// this may happen if the employee did a login two times at that date.
+	// FIXME-DONE
+	// FIXME using now is rong as attendance should be related to login
+	// FIXME-DONE
 
 	public void updateDateAttendance(Login login) {
-		ShiftTimeAttendance attendance = login.getShiftTimeAttendanceId();
+		LocalDate loginDate = login.getLoginDateTime().toLocalDate();
 		Integer employeeId = login.getEmployee().getEmployee();
 
-		// If attendance doesn't exist, create a new one and save it
-		if (attendance == null) {
+		Optional<ShiftTimeAttendance> optionalAttendance = shiftTimeAttendanceRepository
+				.findOneByEmployeeAndDate(employeeId, loginDate);
+
+		ShiftTimeAttendance attendance;
+		if (optionalAttendance.isPresent()) {
+			attendance = optionalAttendance.get();
+		} else {
 			attendance = new ShiftTimeAttendance();
 			attendance.setEmployee(login.getEmployee());
-			attendance.setAttendanceDate(java.sql.Date.valueOf(LocalDate.now()));
+			attendance.setAttendanceDate(loginDate);
 
 			attendance = shiftTimeAttendanceRepository.save(attendance);
 
+			employeeSalaryService.updateSalaryOnAttendanceChange(employeeId, loginDate);
+		}
+
+		if (login.getShiftTimeAttendanceId() == null) {
 			login.setShiftTimeAttendanceId(attendance);
 			loginRepo.save(login);
 		}
 
-		// Get the nearest shift time for the employee
-		ShiftTime shiftTime = findNearestShiftTimeForEmployee(employeeId, login.getLoginDateTime());
-
-		// Calculate and set attendance data
-		calculateAndSetAttendanceData(login, attendance, employeeId, shiftTime);
+		List<Login> logins = loginRepo.findAllByEmployeeAndDate(employeeId, loginDate);
+		calculateAndSetAttendanceData(attendance, logins);
 
 		shiftTimeAttendanceRepository.save(attendance);
 	}
 
-	private void calculateAndSetAttendanceData(Login login, ShiftTimeAttendance attendance, Integer employeeId,
-			ShiftTime shiftTime) {
-		LocalDate attendanceDate;
+	// FIXME this method logic and role should be revised
+	// should this method be called to update the attendance with every login (this
+	// should be controlled and a way to know if this login calculated or not)
+	// or it should be called for every attendance to calculate its full data (in
+	// this case no need to send the login)
+	// FIXME-DONE
 
-		if (attendance.getAttendanceDate() == null) {
-			attendanceDate = LocalDate.now();
-		} else {
-			Date date = attendance.getAttendanceDate();
-			if (date instanceof java.sql.Date) {
-				attendanceDate = ((java.sql.Date) date).toLocalDate();
-			} else {
-				attendanceDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+	// Calculate time difference between activity time and shift time
+	// FIXME if the employee attended 2 shift times
+	// the less and overtime will be replaced and keep just one shift time result.
+	// FIXME-DONE
+	private void calculateAndSetAttendanceData(ShiftTimeAttendance attendance, List<Login> logins) {
+
+		if (attendance == null) {
+			throw new IllegalArgumentException("Attendance must not be null");
+		}
+
+		LocalDate attendanceDate = attendance.getAttendanceDate();
+		if (attendanceDate == null) {
+			throw new IllegalStateException("Attendance date should not be null");
+		}
+
+		if (logins == null || logins.isEmpty()) {
+			attendance.setTotalActiveTime(LocalTime.of(0, 0, 0));
+			attendance.setLessTime(null);
+			attendance.setOverTime(null);
+			return;
+		}
+
+		Duration totalWorked = Duration.ZERO;
+		for (Login login : logins) {
+			if (login.getActivityTime() != null) {
+				totalWorked = totalWorked.plusSeconds(login.getActivityTime().toLocalTime().toSecondOfDay());
 			}
 		}
 
-		// Calculate time difference between activity time and shift time
-		calculateTimeDifference(login, attendance, shiftTime);
+		attendance.setTotalActiveTime(LocalTime.ofSecondOfDay(totalWorked.getSeconds()));
 
-		Time totalActiveTime = calculateTotalActiveTimeForEmployee(employeeId, attendanceDate);
-		attendance.setTotalActiveTime(totalActiveTime);
+		ShiftTime shiftTime = getShiftTimeForEmployee(logins.get(0).getEmployee().getEmployee(), attendanceDate);
 
-		// Total incentive sales
-		Float totalIncentiveSales = calculateTotalIncentiveSales(employeeId, attendanceDate);
-		attendance.setTotalIncentiveSales(totalIncentiveSales);
-	}
+		if (shiftTime == null || shiftTime.getTotalTime() == null) {
+			attendance.setLessTime(null);
+			attendance.setOverTime(null);
+			return;
+		}
 
-	private Time calculateTotalActiveTimeForEmployee(Integer employeeId, LocalDate date) {
-	    try {
-	        Long totalSeconds = loginRepo.sumActivityTimeByEmployeeAndDateNative(employeeId, date);
+		Duration shiftRequired = Duration.ofSeconds(shiftTime.getTotalTime().toSecondOfDay());
 
-	        if (totalSeconds != null && totalSeconds > 0) {
-	            long hours = totalSeconds / 3600;
-	            long minutes = (totalSeconds % 3600) / 60;
-	            long seconds = totalSeconds % 60;
-	            String timeString = String.format("%02d:%02d:%02d", hours, minutes, seconds);
-	            return Time.valueOf(timeString);
-	        } else {
-	            return Time.valueOf("00:00:00");
-	        }
-	    } catch (Exception e) {
-	       
-	        return Time.valueOf("00:00:00");
-	    }
-	}
+		Duration diff = totalWorked.minus(shiftRequired);
 
-	// Calculate time difference between activity time and shift time
-	private void calculateTimeDifference(Login login, ShiftTimeAttendance attendance, ShiftTime shiftTime) {
-		 if (shiftTime != null && shiftTime.getTotalTime() != null && login.getActivityTime() != null) {
-			try {
-				// Convert activity time to minutes
-				LocalTime activityLocalTime = login.getActivityTime().toLocalTime();
-				long activityMinutes = activityLocalTime.getHour() * 60 + activityLocalTime.getMinute();
-
-				// Convert shift total time to minutes
-				LocalTime shiftTotalLocalTime = shiftTime.getTotalTime();
-				long shiftTotalMinutes = shiftTotalLocalTime.getHour() * 60 + shiftTotalLocalTime.getMinute();
-
-				// Calculate difference
-				long timeDifferenceMinutes = activityMinutes - shiftTotalMinutes;
-
-				System.out.println("Activity Time: " + activityLocalTime + " (" + activityMinutes + " minutes)");
-				System.out.println("Shift Time: " + shiftTotalLocalTime + " (" + shiftTotalMinutes + " minutes)");
-				System.out.println("Time Difference: " + timeDifferenceMinutes + " minutes");
-
-				if (timeDifferenceMinutes < 0) {
-					// Less time - activity time is less than required shift time
-					long lessMinutes = Math.abs(timeDifferenceMinutes);
-					Time lessTime = Time.valueOf(String.format("%02d:%02d:00", lessMinutes / 60, lessMinutes % 60));
-					attendance.setLessTime(lessTime);
-					attendance.setOverTime(null);
-					System.out.println("Less time detected: " + lessTime);
-				} else if (timeDifferenceMinutes > 0) {
-					// Overtime - activity time is more than required shift time
-					long overMinutes = timeDifferenceMinutes;
-					Time overTime = Time.valueOf(String.format("%02d:%02d:00", overMinutes / 60, overMinutes % 60));
-					attendance.setOverTime(overTime);
-					attendance.setLessTime(null);
-					System.out.println("Overtime detected: " + overTime);
-				} else {
-					// Exact time - activity time equals shift time
-					attendance.setLessTime(null);
-					attendance.setOverTime(null);
-					System.out.println("Time is exactly as required");
-				}
-
-			} catch (Exception e) {
-				System.err.println("Error calculating time difference: " + e.getMessage());
-				attendance.setLessTime(null);
-				attendance.setOverTime(null);
-			}
+		if (diff.isNegative()) {
+			attendance.setLessTime(LocalTime.ofSecondOfDay(Math.abs(diff.getSeconds())));
+			attendance.setOverTime(null);
+		} else if (!diff.isZero()) {
+			attendance.setOverTime(LocalTime.ofSecondOfDay(diff.getSeconds()));
+			attendance.setLessTime(null);
 		} else {
 			attendance.setLessTime(null);
 			attendance.setOverTime(null);
-			System.out.println("Cannot calculate overtime/less time - missing shift or activity data");
 		}
 	}
 
 	// Find the nearest shift time for employee based on login time
-	private ShiftTime findNearestShiftTimeForEmployee(Integer employeeId, LocalDateTime loginTime) {
-	    try {
-	        Optional<ShiftTime> optionalShift = loginRepo.findCurrentShiftTimeForEmployee(employeeId);
+	// FIXME this method does not return the shift time related to the login as it
+	// uses the current time not the login time
+	// FIXME-DONE
+	public ShiftTime findNearestShiftTimeForEmployee(Integer employeeId, LocalDateTime loginTime) {
+		try {
+			List<ShiftTime> shifts = shiftRepository.findShiftsByEmployeeIdAndDate(employeeId,loginTime.getDayOfWeek().getValue());
 
-	        if (optionalShift.isEmpty()) {
-	            System.out.println("No shift times found for employee: " + employeeId);
-	            return null;
-	        }
+			if (shifts.isEmpty()) {
+				return null;
+			}
 
-	        ShiftTime shiftTime = optionalShift.get();
+			LocalTime loginLocalTime = loginTime.toLocalTime();
 
-	        // Convert times
-	        LocalTime loginLocalTime = loginTime.toLocalTime();
-	        LocalTime shiftFromTime = shiftTime.getFromTime();
-	        LocalTime shiftToTime = shiftTime.getToTime();
+			ShiftTime nearestShift = shifts.stream().min(Comparator.comparingLong(shift -> {
+				LocalTime from = shift.getFromTime();
+				LocalTime to = shift.getToTime();
+				long diffToStart = Math.abs(Duration.between(loginLocalTime, from).toMinutes());
+				long diffToEnd = Math.abs(Duration.between(loginLocalTime, to).toMinutes());
+				return Math.min(diffToStart, diffToEnd);
+			})).orElse(null);
 
-	        long diffToStart = calculateTimeDifferenceInMinutes(loginLocalTime, shiftFromTime);
-	        long diffToEnd = calculateTimeDifferenceInMinutes(loginLocalTime, shiftToTime);
+			if (nearestShift != null) {
+			}
 
-	        long minDiff = Math.min(diffToStart, diffToEnd);
+			return nearestShift;
 
-	        System.out.println("Nearest shift found: " + shiftTime.getShiftTimeId() 
-	            + " with time difference: " + minDiff + " minutes");
-
-	        return shiftTime;
-
-	    } catch (Exception e) {
-	        System.err.println("Error finding nearest shift for employee " + employeeId + ": " + e.getMessage());
-	        return null;
-	    }
-	}
-
-
-	// Calculate time difference in minutes between two LocalTime objects
-	private long calculateTimeDifferenceInMinutes(LocalTime time1, LocalTime time2) {
-		long minutes1 = time1.getHour() * 60 + time1.getMinute();
-		long minutes2 = time2.getHour() * 60 + time2.getMinute();
-
-		return Math.abs(minutes1 - minutes2);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	// calculate total incentive sales
-	private Float calculateTotalIncentiveSales(Integer employeeId, LocalDate date) {
-		Employee employee = employeeRepository.findById(employeeId)
-				.orElseThrow(() -> new RuntimeException("Employee not found with id: " + employeeId));
 
-		Float incentivePercent = employee.getSalesIncentivePercent() != null ? employee.getSalesIncentivePercent()
-				: 0.0f;
+	// Incentive On All Sales=1
+	// FIXME for one attendance the employee may has more than one shift time
+	// FIXME-DONE
+	public Float calculateTotalIncentiveSales(Integer employeeId, LocalDate date) {
+		try {
+			
 
-		if (employee.getIncentiveOnAllSales()) {
-			// Incentive On All Sales=1
-			ShiftTime shiftTime = getShiftTimeForEmployee(employeeId, date);
-			Float allSalesDuringShift = calculateAllSalesDuringShiftTime(date, shiftTime);
-			return allSalesDuringShift * (incentivePercent / 100);
-		} else {
+			Employee employee = employeeRepository.findById(employeeId)
+					.orElseThrow(() -> new RuntimeException("Employee not found"));
 
-			Float allEmployeeSales = calculateAllEmployeeSalesForDate(employeeId, date);
-			return allEmployeeSales * (incentivePercent / 100);
+
+			if (employee.getSalesIncentivePercent() == null) {
+				return 0.0f;
+			}
+
+			Float incentivePercent = employee.getSalesIncentivePercent();
+
+			if (incentivePercent <= 0.0f) {
+				return 0.0f;
+			}
+
+			Optional<ShiftTimeAttendance> attendance = shiftTimeAttendanceRepository
+					.findOneByEmployeeAndDate(employeeId, date);
+
+			if (!attendance.isPresent()) {
+				return 0.0f;
+			}
+
+
+			Boolean incentiveOnAllSales = employee.getIncentiveOnAllSales();
+			if (incentiveOnAllSales == null) {
+				incentiveOnAllSales = false;
+			}
+
+			Float result;
+			if (incentiveOnAllSales) {
+				result = calculateIncentiveForAllSales(employeeId, date, incentivePercent);
+			} else {
+				result = calculateIncentiveForPersonalSales(employeeId, date, incentivePercent);
+			}
+
+			
+
+			return result;
+
+		} catch (Exception e) {
+			
+			return 0.0f;
+		}
+	}
+
+	private Float calculateIncentiveForAllSales(Integer employeeId, LocalDate date, Float incentivePercent) {
+		
+		List<ShiftTime> shifts = getShiftsForEmployee(employeeId, date);
+
+
+		if (shifts.isEmpty()) {
+			return 0.0f;
+		}
+
+		Float totalIncentive = 0.0f;
+
+		for (int i = 0; i < shifts.size(); i++) {
+			ShiftTime shift = shifts.get(i);
+			
+			boolean attendedThisShift = didEmployeeAttendThisSpecificShift(employeeId, date, shift);
+
+			if (!attendedThisShift) {
+				continue;
+			}
+
+			Float salesDuringShift = getTotalSalesDuringShift(date, shift);
+
+			if (salesDuringShift == null || salesDuringShift <= 0) {
+				continue;
+			}
+
+			Float shiftIncentive = salesDuringShift * (incentivePercent / 100);
+			
+
+			totalIncentive += shiftIncentive;
+		}
+
+		return totalIncentive;
+	}
+
+	private boolean didEmployeeAttendThisSpecificShift(Integer employeeId, LocalDate date, ShiftTime shift) {
+
+		if (shift.getDayIndex() != null) {
+			int todayDayIndex = date.getDayOfWeek().getValue();
+			if (shift.getDayIndex() != todayDayIndex) {
+				
+				return false;
+			}
+		}
+		Optional<ShiftTimeAttendance> attendance = shiftTimeAttendanceRepository.findOneByEmployeeAndDate(employeeId,
+				date);
+
+		if (!attendance.isPresent()) {
+			
+			return false;
+		}
+
+		ShiftTimeAttendance att = attendance.get();
+		
+
+		if (att.getTotalActiveTime() == null) {
+			
+			return false;
+		}
+
+		LocalTime activeTime = att.getTotalActiveTime();
+
+		long activeMinutes = Duration.between(LocalTime.MIDNIGHT, activeTime).toMinutes();
+
+		if (activeTime.equals(LocalTime.MIDNIGHT) || activeMinutes < 30) {
+
+			return false;
+		}
+
+		List<Login> logins = loginRepo.findAllByEmployeeAndDate(employeeId, date);
+
+		if (logins.isEmpty()) {
+			
+			return false;
+		}
+
+		
+
+		LocalTime from = shift.getFromTime();
+		LocalTime to = shift.getToTime();
+		boolean isOvernightShift = to.isBefore(from);
+		System.out.println("DEBUG: Shift is overnight: " + isOvernightShift);
+
+		for (Login login : logins) {
+			if (login.getLoginDateTime() == null || login.getActivityTime() == null) {
+				continue;
+			}
+
+			LocalTime loginTime = login.getLoginDateTime().toLocalTime();
+			LocalTime logoutTime = loginTime.plusSeconds(login.getActivityTime().toLocalTime().toSecondOfDay());
+
+
+			boolean attended = false;
+
+			if (!isOvernightShift) {
+				attended = !loginTime.isAfter(to) && !logoutTime.isBefore(from);
+			} else {
+				if (loginTime.isBefore(to)) {
+					attended = loginTime.isBefore(to) && logoutTime.isAfter(from);
+				} else {
+					attended = loginTime.isAfter(from) || logoutTime.isBefore(to);
+				}
+			}
+
+			long loginDuration = Duration.between(loginTime, logoutTime).toMinutes();
+
+			if (attended && loginDuration >= 30) {
+
+				return true;
+			} 
+		}
+
+		return false;
+	}
+
+	private Float calculateIncentiveForPersonalSales(Integer employeeId, LocalDate date, Float incentivePercent) {
+		List<ShiftTime> shifts = getShiftsForEmployee(employeeId, date);
+
+		if (shifts.isEmpty()) {
+			return 0.0f;
+		}
+
+		Float totalIncentive = 0.0f;
+
+		for (ShiftTime shift : shifts) {
+			boolean attendedThisShift = didEmployeeAttendThisSpecificShift(employeeId, date, shift);
+
+			if (!attendedThisShift) {
+				continue;
+			}
+
+			Float personalSalesDuringShift = getPersonalSalesDuringShift(employeeId, date, shift);
+
+			if (personalSalesDuringShift == null || personalSalesDuringShift <= 0) {
+				continue;
+			}
+
+			Float shiftIncentive = personalSalesDuringShift * (incentivePercent / 100);
+			totalIncentive += shiftIncentive;
+		}
+
+		return totalIncentive;
+	}
+
+	private Float getTotalSalesDuringShift(LocalDate date, ShiftTime shift) {
+		try {
+			if (shift == null || shift.getFromTime() == null || shift.getToTime() == null) {
+				return 0.0f;
+			}
+
+			LocalDateTime shiftStart = LocalDateTime.of(date, shift.getFromTime());
+			LocalDateTime shiftEnd = LocalDateTime.of(date, shift.getToTime());
+
+			if (shift.getToTime().isBefore(shift.getFromTime())) {
+				shiftEnd = shiftEnd.plusDays(1);
+			}
+
+
+			Float sales = salesRepository.calculateAllSalesDuringShiftTime(shiftStart, shiftEnd);
+			return sales != null ? sales : 0.0f;
+		} catch (Exception e) {
+			return 0.0f;
+		}
+	}
+
+	private Float getPersonalSalesDuringShift(Integer employeeId, LocalDate date, ShiftTime shift) {
+		try {
+			if (shift == null || shift.getFromTime() == null || shift.getToTime() == null) {
+				return 0.0f;
+			}
+
+			LocalDateTime shiftStart = LocalDateTime.of(date, shift.getFromTime());
+			LocalDateTime shiftEnd = LocalDateTime.of(date, shift.getToTime());
+
+			if (shift.getToTime().isBefore(shift.getFromTime())) {
+				shiftEnd = shiftEnd.plusDays(1);
+			}
+
+			
+			Float sales = salesRepository.calculateEmployeeSalesDuringShiftTime(employeeId, shiftStart, shiftEnd);
+			return sales != null ? sales : 0.0f;
+		} catch (Exception e) {
+			return 0.0f;
+		}
+	}
+
+	private List<ShiftTime> getShiftsForEmployee(Integer employeeId, LocalDate date) {
+		try {
+			int todayDayIndex = date.getDayOfWeek().getValue();
+			List<ShiftTime> allShifts = shiftRepository.findByEmployeeId(employeeId);
+
+			List<ShiftTime> shiftsForToday = allShifts.stream().filter(shift -> {
+				if (shift.getDayIndex() == null) {
+					return true;
+				}
+				return shift.getDayIndex() == todayDayIndex;
+			}).collect(Collectors.toList());
+
+			return shiftsForToday;
+
+		} catch (Exception e) {
+			return List.of();
 		}
 	}
 
 	// shift time for employee
 	public ShiftTime getShiftTimeForEmployee(Integer employeeId, LocalDate date) {
 		try {
-
 			Optional<ShiftTime> shiftToday = shiftRepository.findByEmployeeIdAndDateNative(employeeId, date);
 
 			if (shiftToday.isPresent()) {
@@ -257,22 +464,24 @@ public class shiftTimeAttendanceService {
 		}
 	}
 
-	private Float calculateAllSalesDuringShiftTime(LocalDate date, ShiftTime shiftTime) {
-		if (shiftTime == null) {
-			return 0.0f;
+	public void updateDateAttendance(ShiftTimeAttendance attendance) {
+		if (attendance == null || attendance.getEmployee() == null || attendance.getAttendanceDate() == null) {
+			return;
 		}
 
-		LocalDateTime shiftStart = LocalDateTime.of(date, shiftTime.getFromTime());
-		LocalDateTime shiftEnd = LocalDateTime.of(date, shiftTime.getToTime());
+		Integer employeeId = attendance.getEmployee().getEmployee();
+		LocalDate attendanceDate = attendance.getAttendanceDate();
 
-		return salesRepository.calculateAllSalesDuringShiftTime(shiftStart, shiftEnd);
+		List<Login> logins = loginRepo.findAllByEmployeeAndDate(employeeId, attendanceDate);
+
+		calculateAndSetAttendanceData(attendance, logins);
+
+		shiftTimeAttendanceRepository.save(attendance);
 	}
 
-	private Float calculateAllEmployeeSalesForDate(Integer employeeId, LocalDate date) {
-		return salesRepository.calculateTotalSalesByEmployeeAndDate(employeeId, date);
-	}
-
-	public ShiftTimeAttendance getshittimeattendance(Integer shiftTimeAttendanceId) {
+	// TODO fix naming conventions
+	// FIXME-DONE
+	public ShiftTimeAttendance getShiftTimeAttendance(Integer shiftTimeAttendanceId) {
 		if (shiftTimeAttendanceId == null) {
 			return null;
 		}

@@ -10,7 +10,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import com.project.demo.entity.Login;
-import com.project.demo.entity.ShiftTime;
 import com.project.demo.entity.ShiftTimeAttendance;
 
 @Repository
@@ -45,11 +44,11 @@ public interface LoginRepo extends JpaRepository<Login, Integer> {
 	// This is updates
 	// Select shift_time of the employee where now is between its (fromTime - 1) and
 	// toTime
-	@Query(value = "SELECT st.* FROM shift_time st " + "JOIN shift s ON s.shift_id = st.shift_id "
-			+ "JOIN employee_shift es ON es.shift_id = s.shift_id " + "WHERE es.employee_id = :employeeId "
-			+ "AND es.active = TRUE " + "AND CURTIME() BETWEEN SUBTIME(st.from_time, '01:00:00') AND st.to_time "
-			+ "LIMIT 1", nativeQuery = true)
-	Optional<ShiftTime> findCurrentShiftTimeForEmployee(@Param("employeeId") Integer employeeId);
+	// FIXME this didn't take into consideration the day
+	// FIXME-DONE
+	// FIXME this method is related to shift time, why is it here in login repo?
+	// FIXME-DONE in shift time repo
+
 	// Select login of an employee whose “locked” is false and logoutStatus is false
 	// and within the selected shift_time.
 
@@ -64,8 +63,7 @@ public interface LoginRepo extends JpaRepository<Login, Integer> {
 	@Query("SELECT sta FROM ShiftTimeAttendance sta " + "WHERE sta.employee.employeeId = :employeeId "
 			+ "AND sta.attendanceDate = CURRENT_DATE")
 	Optional<ShiftTimeAttendance> findTodayAttendanceByEmployee(@Param("employeeId") Integer employeeId);
-	
-    @Query(value = "SELECT SUM(TIME_TO_SEC(activity_time)) FROM login WHERE employee_id = :employeeId AND DATE(login_date_time) = :date", nativeQuery = true)
-    Long sumActivityTimeByEmployeeAndDateNative(@Param("employeeId") Integer employeeId, @Param("date") LocalDate date);
 
+	@Query("SELECT l FROM Login l WHERE l.employee.id = :employeeId AND DATE(l.loginDateTime) = :date")
+	List<Login> findAllByEmployeeAndDate(@Param("employeeId") Integer employeeId, @Param("date") LocalDate date);
 }

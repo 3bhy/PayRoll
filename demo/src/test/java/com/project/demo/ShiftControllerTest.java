@@ -19,7 +19,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.sql.Time;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collections;

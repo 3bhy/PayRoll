@@ -36,6 +36,7 @@ public class LoginService {
 
 	@Autowired
 	private EmployeeService employeeService;
+	
 
 	@Autowired
 	private EmployeeRepo employeeRepository;
@@ -68,25 +69,35 @@ public class LoginService {
 	}
 
 	// Lock login function
+	//FIXME what do you do with the employeeId?
+	//FIXME-DONE lock the open logins with employeeid
 	public List<Login> lockLogin(Integer employeeId, List<Login> activeLogins) {
-		try {
-			if (activeLogins.isEmpty()) {
-				return activeLogins;
-			}
+	    try {
+	        if (activeLogins.isEmpty()) {
+	            return activeLogins;
+	        }
 
-			for (Login login : activeLogins) {
-				calculateAndSetActivityTime(login);
+	        for (Login login : activeLogins) {
 
-				login.setLocked(true);
-				loginRepository.save(login);
-			}
-			return activeLogins;
+	            if (!login.getEmployee().getEmployee().equals(employeeId)) {
+	                throw new IllegalArgumentException(
+	                    "Login does not belong to employee " + employeeId
+	                );
+	            }
 
-		} catch (Exception e) {
-			System.out.println("Error: " + e.getMessage());
-			throw new RuntimeException("Error while locking logins for employee " + employeeId, e);
-		}
+	            calculateAndSetActivityTime(login);
+	            login.setLocked(true);
+	            loginRepository.save(login);
+	        }
+	        return activeLogins;
+
+	    } catch (Exception e) {
+	        throw new RuntimeException(
+	            "Error while locking logins for employee " + employeeId, e
+	        );
+	    }
 	}
+
 
 	// calculate active time
 	public Time calculateAndSetActivityTime(Login login) {
@@ -128,40 +139,36 @@ public class LoginService {
 
 	// Create new login record by employeeId and default values
 	private Login createNewLoginWithEmIdShId(Integer employeeId, Integer shiftTimeAttendanceId) {
-		Login login = new Login();
+	    Login login = new Login();
 
-		// Set employee
-		Employee employee = employeeService.getEmployeeById(employeeId);
-		login.setEmployee(employee);
-		ShiftTimeAttendance shiftTimeAttendance = shiftTimeAttendanceService
-				.getshittimeattendance(shiftTimeAttendanceId);
-		login.setShiftTimeAttendanceId(shiftTimeAttendance);
+	    // Set employee
+	    Employee employee = employeeService.getEmployeeById(employeeId);
+	    login.setEmployee(employee);
 
-		LocalDateTime now = LocalDateTime.now();
-		login.setLoginDateTime(now);
-		login.setLogoutDateTime(now.plusMinutes(15));
-		login.setLocked(false);
-		login.setLogoutStatus(false);
-		login.setActivityTime(Time.valueOf("00:15:00"));
+	  
 
-		try {
-			List<ShiftTime> shiftTimes = shiftTimeRepo.findByEmployeeIdNative(employeeId);
+	    LocalDateTime now = LocalDateTime.now();
+	    login.setLoginDateTime(now);
+	    login.setLogoutDateTime(now.plusMinutes(15));
+	    login.setLocked(false);
+	    login.setLogoutStatus(false);
+	    login.setActivityTime(Time.valueOf("00:15:00"));
 
-			if (!shiftTimes.isEmpty()) {
-				ShiftTime shiftTime = shiftTimes.get(0);
-				login.setShiftTimeId(shiftTime);
-				System.out
-						.println("Found shift time ID: " + shiftTime.getShiftTimeId() + " for employee: " + employeeId);
-			} else {
-				System.out.println("No shift times found for employee: " + employeeId);
-			}
-		} catch (Exception e) {
-			System.err.println("Error fetching shift times for employee " + employeeId + ": " + e.getMessage());
-		}
+	    ShiftTime nearestShift = shiftTimeAttendanceService.findNearestShiftTimeForEmployee(employeeId, now);
+	    if (nearestShift != null) {
+	        login.setShiftTimeId(nearestShift);
+	        System.out.println("Assigned nearest shift: " + nearestShift.getShiftTimeId() + " for employee: " + employeeId);
+	    } else {
+	        System.out.println("No shift found for employee: " + employeeId);
+	    }
+	    CreateNewAttendance( employeeId);
+	    ShiftTimeAttendance shiftTimeAttendance = shiftTimeAttendanceService.getShiftTimeAttendance(shiftTimeAttendanceId);
+		 login.setShiftTimeAttendanceId(shiftTimeAttendance);
+	    Login savedLogin = loginRepository.save(login);
 
-		Login savedLogin = loginRepository.save(login);
-		shiftTimeAttendanceService.updateDateAttendance(login);
-		return savedLogin;
+	   
+
+	    return savedLogin;
 	}
 
 	// get login by id
@@ -243,7 +250,6 @@ public class LoginService {
 	public Login logoutByLoginId(Integer loginId) {
 		Login login = loginRepository.findActiveLoginById(loginId)
 				.orElseThrow(() -> new EntityNotFoundException("Active login not found with id: " + loginId));
-
 		return processLogout(login.getEmployee().getEmployee(),
 				login.getShiftTimeAttendanceId().getShiftTimeAttendanceId());
 	}
@@ -259,7 +265,7 @@ public class LoginService {
 	// and to hour and same day
 
 	public ShiftTime getCurrentShiftTimeForEmployee(Integer employeeId) {
-		Optional<ShiftTime> shiftTimeOpt = loginRepository.findCurrentShiftTimeForEmployee(employeeId);
+		Optional<ShiftTime> shiftTimeOpt = shiftTimeRepo.findCurrentShiftTimeForEmployee(employeeId);
 
 		return shiftTimeOpt.orElseGet(this::createDummyShiftTime);
 	}
@@ -307,19 +313,20 @@ public class LoginService {
 
 	private ShiftTimeAttendance CreateNewAttendance(Integer employeeId) {
 
-		Employee employee = employeeRepository.findById(employeeId).orElseThrow();
+    Employee employee = employeeRepository.findById(employeeId)
+	            .orElseThrow(() -> new RuntimeException("Employee not found with id: " + employeeId));
 
-		ShiftTimeAttendance newAttendance = new ShiftTimeAttendance();
-		newAttendance.setEmployee(employee);
-		newAttendance.setAttendanceDate(java.sql.Date.valueOf(LocalDate.now()));
-		newAttendance.setOverTime(Time.valueOf("00:00:00"));
-		newAttendance.setLessTime(Time.valueOf("00:00:00"));
-		newAttendance.setTotalActiveTime(Time.valueOf("00:00:00"));
-		newAttendance.setTotalOverTime(Time.valueOf("00:00:00"));
-		newAttendance.setTotalIncentiveSales(0.0f);
+	    ShiftTimeAttendance attendance = new ShiftTimeAttendance();
+	    attendance.setEmployee(employee);
 
-		return shiftTimeAttendanceRepository.save(newAttendance);
+	    LocalDate today = LocalDate.now();
+	    attendance.setAttendanceDate(today);
 
+	    attendance.setTotalActiveTime(LocalTime.of(0, 0, 0));
+	    attendance.setLessTime(null);
+	    attendance.setOverTime(null);
+
+	    return shiftTimeAttendanceRepository.save(attendance);
 	}
 
 }

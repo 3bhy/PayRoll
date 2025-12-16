@@ -21,7 +21,7 @@ public class ShiftService {
 	@Autowired
 	private CompanyRepo companyRepository;
 
-	public ShiftService(ShiftRepo shiftRepository) {
+	public ShiftService(ShiftRepo shiftRepository, CompanyRepo companyRepository) {
 		this.shiftRepository = shiftRepository;
         this.companyRepository = companyRepository;
 

@@ -25,7 +25,8 @@ public class Sales {
 
 	@Column(name = "saleAmount")
 	private Float saleAmount;
-
+    public Sales() {
+    }
 	public Sales(Employee employee, LocalDateTime saleDate, Float saleAmount) {
 		this.employee = employee;
 		this.saleDate = saleDate;

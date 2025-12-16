@@ -68,12 +68,10 @@ class LoginTest {
 
 	@BeforeEach
 	void setUp() {
-		// Initialize time objects
 		now = LocalDateTime.now();
 		loginTime = now.minusHours(2);
 		logoutTime = now.minusHours(1);
 
-		// Initialize entities
 		employee = new Employee();
 		employee.setEmployeeId(1);
 
@@ -113,8 +111,7 @@ class LoginTest {
 	void testCreateLoginIfWasActiveLogin() {
 		when(loginRepository.findActiveLogins(1)).thenReturn(Collections.emptyList());
 		when(employeeService.getEmployeeById(1)).thenReturn(employee);
-		when(shiftTimeAttendanceService.getshittimeattendance(1)).thenReturn(shiftTimeAttendance);
-		when(shiftTimeRepo.findByEmployeeIdNative(1)).thenReturn(Arrays.asList(shiftTime));
+		when(shiftTimeAttendanceService.getShiftTimeAttendance(1)).thenReturn(shiftTimeAttendance);
 		when(loginRepository.save(any(Login.class))).thenReturn(login);
 
 		Login result = loginService.createLoginIfWasActiveLogin(loginModel);
@@ -140,7 +137,7 @@ class LoginTest {
 
 		when(loginRepository.findActiveLogins(1)).thenReturn(Collections.emptyList());
 		when(employeeService.getEmployeeById(1)).thenReturn(employee);
-		when(shiftTimeAttendanceService.getshittimeattendance(null))
+		when(shiftTimeAttendanceService.getShiftTimeAttendance(null))
 				.thenThrow(new RuntimeException("Shift time attendance ID cannot be null"));
 
 		RuntimeException exception = assertThrows(RuntimeException.class,
@@ -155,10 +152,16 @@ class LoginTest {
 
 	@Test
 	void testLockLogin() {
+
+		Employee employee = new Employee();
+		employee.setEmployeeId(1);
+
 		Login activeLogin = new Login();
 		activeLogin.setLoginId(1);
 		activeLogin.setLoginDateTime(loginTime);
 		activeLogin.setLogoutDateTime(logoutTime);
+		activeLogin.setEmployee(employee); 
+		activeLogin.setLocked(false);
 
 		List<Login> activeLogins = Arrays.asList(activeLogin);
 
@@ -170,6 +173,7 @@ class LoginTest {
 		assertTrue(activeLogin.getLocked());
 		verify(loginRepository).save(activeLogin);
 	}
+
 
 	@Test
 	void testLockLogin_EmptyList() {
@@ -182,10 +186,16 @@ class LoginTest {
 
 	@Test
 	void testLockLogin_WithNullLogoutDateTime() {
+
+		Employee employee = new Employee();
+		employee.setEmployeeId(1);
+
 		Login activeLogin = new Login();
 		activeLogin.setLoginId(1);
 		activeLogin.setLoginDateTime(loginTime);
-		activeLogin.setLogoutDateTime(null);
+		activeLogin.setLogoutDateTime(null); 
+		activeLogin.setEmployee(employee);  
+		activeLogin.setLocked(false);
 
 		List<Login> activeLogins = Arrays.asList(activeLogin);
 
@@ -197,6 +207,7 @@ class LoginTest {
 		assertTrue(activeLogin.getLocked());
 		verify(loginRepository).save(activeLogin);
 	}
+
 
 	// ==================== calculateAndSetActivityTime Tests ====================
 
@@ -471,12 +482,11 @@ class LoginTest {
 
 	@Test
 	void testProcessLogout_NoActiveLogin_CreatesNew() {
-		when(loginRepository.findActiveLogins(1)).thenReturn(Collections.emptyList());
-		when(employeeService.getEmployeeById(1)).thenReturn(employee);
-		when(shiftTimeAttendanceService.getshittimeattendance(1)).thenReturn(shiftTimeAttendance);
-		when(shiftTimeRepo.findByEmployeeIdNative(1)).thenReturn(Arrays.asList(shiftTime));
-		when(loginRepository.save(any(Login.class))).thenReturn(login);
-
+		lenient().when(loginRepository.findActiveLogins(1)).thenReturn(Collections.emptyList());
+		lenient().when(employeeService.getEmployeeById(1)).thenReturn(employee);
+		lenient().when(shiftTimeAttendanceService.getShiftTimeAttendance(1)).thenReturn(shiftTimeAttendance);
+		lenient().when(shiftTimeRepo.findByEmployeeIdNative(1)).thenReturn(Arrays.asList(shiftTime));
+		lenient().when(loginRepository.save(any(Login.class))).thenReturn(login);
 		Login result = loginService.processLogout(1, 1);
 
 		assertNotNull(result);
@@ -544,13 +554,13 @@ class LoginTest {
 
 	@Test
 	void testGetCurrentShiftTimeForEmployee_Found() {
-		when(loginRepository.findCurrentShiftTimeForEmployee(1)).thenReturn(Optional.of(shiftTime));
+		when(shiftTimeRepo.findCurrentShiftTimeForEmployee(1)).thenReturn(Optional.of(shiftTime));
 
 		ShiftTime result = loginService.getCurrentShiftTimeForEmployee(1);
 
 		assertNotNull(result);
 		assertEquals(1, result.getShiftTimeId());
-		verify(loginRepository).findCurrentShiftTimeForEmployee(1);
+		verify(shiftTimeRepo).findCurrentShiftTimeForEmployee(1);
 	}
 
 	@Test
@@ -565,7 +575,7 @@ class LoginTest {
 		dummyShiftTime.setShiftTimeId(-1);
 		dummyShiftTime.setShiftId(dummyShift); // This was missing!
 
-		when(loginRepository.findCurrentShiftTimeForEmployee(employeeId)).thenReturn(Optional.empty());
+		when(shiftTimeRepo.findCurrentShiftTimeForEmployee(employeeId)).thenReturn(Optional.empty());
 
 		ShiftTime result = loginService.getCurrentShiftTimeForEmployee(employeeId);
 
@@ -611,7 +621,8 @@ class LoginTest {
 	void testGetTodayAttendance_NotFound_CreatesNew() {
 		when(loginRepository.findTodayAttendanceByEmployee(1)).thenReturn(Optional.empty());
 		when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
-		when(shiftTimeAttendanceRepository.save(any(ShiftTimeAttendance.class))).thenReturn(shiftTimeAttendance);
+		when(shiftTimeAttendanceRepository.save(any(ShiftTimeAttendance.class)))
+			.thenReturn(shiftTimeAttendance);
 
 		ShiftTimeAttendance result = loginService.getTodayAttendance(1);
 
@@ -620,6 +631,7 @@ class LoginTest {
 		verify(employeeRepository).findById(1);
 		verify(shiftTimeAttendanceRepository).save(any(ShiftTimeAttendance.class));
 	}
+
 
 	@Test
 	void testGetTodayAttendance_EmployeeNotFound() {

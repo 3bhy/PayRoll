@@ -1,6 +1,5 @@
 package com.project.demo.entity;
 
-import java.sql.Time;
 import java.time.LocalTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;

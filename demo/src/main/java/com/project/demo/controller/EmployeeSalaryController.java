@@ -119,40 +119,10 @@ public class EmployeeSalaryController {
         }
     }
 
-    @PostMapping("/final")
-    public ResponseEntity<?> updateFinalSalary(@RequestParam Integer employeeId, 
-                                               @RequestParam Integer year,
-                                               @RequestParam Integer month, 
-                                               @RequestParam Float finalSalary) {
-        try {
-            if (employeeId == null) {
-                throw new IllegalArgumentException("Employee ID cannot be null");
-            }
-            if (year == null || year < 2000 || year > 2100) {
-                throw new IllegalArgumentException("Invalid year. Must be between 2000 and 2100");
-            }
-            if (month == null || month < 1 || month > 12) {
-                throw new IllegalArgumentException("Invalid month. Must be between 1 and 12");
-            }
-            if (finalSalary == null) {
-                throw new IllegalArgumentException("Final salary cannot be null");
-            }
-            
-            if (finalSalary < 0) {
-                throw new IllegalArgumentException("Final salary cannot be negative");
-            }
-            
-            EmployeeSalary result = employeeSalaryService.addFinalSalary(employeeId, year, month, finalSalary);
-            return ResponseEntity.ok(result);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("message", "Error updating final salary: " + e.getMessage()));
-        }
-    }
-
+    
+    //FIXME he should not set the final salary, he should set the main salary, incentive, reward, discount ... etc 
+    // and e calculate the final salary.
+ //FIXME-DONE
     private void validateSalaryParams(Integer employeeId, Integer year, Integer month, Float amount, String reason) {
         if (employeeId == null) {
             throw new IllegalArgumentException("Employee ID cannot be null");
