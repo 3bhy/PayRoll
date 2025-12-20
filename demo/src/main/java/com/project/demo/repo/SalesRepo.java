@@ -29,4 +29,21 @@ public interface SalesRepo extends JpaRepository<Sales, Integer> {
 			""", nativeQuery = true)
 	Float calculateEmployeeSalesDuringShiftTime(@Param("employeeId") Integer employeeId,
 			@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+	//new update
+	@Query("""
+		    SELECT COALESCE(SUM(
+		        CASE
+		            WHEN s.seller = false AND s.isReturn = false THEN  s.saleAmount
+		            WHEN s.seller = false AND s.isReturn = true  THEN -s.saleAmount
+		            WHEN s.seller = true  AND s.isReturn = false THEN -s.saleAmount
+		            WHEN s.seller = true  AND s.isReturn = true  THEN  s.saleAmount
+		        END
+		    ), 0)
+		    FROM Sales s
+		    WHERE s.employee.employeeId = :employeeId
+		""")
+		Float calculateEmployeeCredit(Integer employeeId);
+
+
+
 }

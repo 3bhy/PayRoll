@@ -23,14 +23,40 @@ public class Sales {
 	@Column(name = "saleDate")
 	private LocalDateTime saleDate;
 
+	public Boolean getSeller() {
+		return seller;
+	}
+
+	public void setSeller(Boolean seller) {
+		this.seller = seller;
+	}
+
+	@Column(name = "seller")
+	private Boolean seller;
+
+	@Column(name = "is_return")
+	private Boolean isReturn;
+
+	public Boolean getIsReturn() {
+		return isReturn;
+	}
+
+	public void setIsReturn(Boolean isReturn) {
+		this.isReturn = isReturn;
+	}
+
 	@Column(name = "saleAmount")
 	private Float saleAmount;
-    public Sales() {
-    }
-	public Sales(Employee employee, LocalDateTime saleDate, Float saleAmount) {
+
+	public Sales() {
+	}
+
+	public Sales(Employee employee, LocalDateTime saleDate, Float saleAmount, Boolean seller, Boolean isReturn) {
 		this.employee = employee;
 		this.saleDate = saleDate;
 		this.saleAmount = saleAmount;
+		this.seller = seller;
+		this.isReturn = isReturn;
 	}
 
 	// Getters and Setters

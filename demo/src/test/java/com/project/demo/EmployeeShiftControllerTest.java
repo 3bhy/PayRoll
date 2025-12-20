@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.sql.Date;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -166,15 +167,15 @@ class EmployeeShiftControllerTest {
 		EmployeeShift shiftDetails = new EmployeeShift();
 		shiftDetails.setEmployee(e);
 		shiftDetails.setActive(false);
-		shiftDetails.setStartActiveDate(Date.valueOf("2024-01-01"));
-		shiftDetails.setEndActiveDate(Date.valueOf("2024-12-31"));
+		shiftDetails.setStartActiveDate(LocalDate.of(2024,01,01));
+		shiftDetails.setEndActiveDate(LocalDate.of(2024,12,31));
 
 		EmployeeShift updatedShift = new EmployeeShift();
 		updatedShift.setEmployeeShiftId(1);
 		updatedShift.setEmployee(e);
 		updatedShift.setActive(false);
-		updatedShift.setStartActiveDate(Date.valueOf("2024-01-01"));
-		updatedShift.setEndActiveDate(Date.valueOf("2024-12-31"));
+		updatedShift.setStartActiveDate(LocalDate.of(2024,01,01));
+		updatedShift.setEndActiveDate(LocalDate.of(2024,12,31));
 
 		when(employeeShiftService.updateEmployeeShift(eq(1), any(EmployeeShift.class))).thenReturn(updatedShift);
 
@@ -188,7 +189,7 @@ class EmployeeShiftControllerTest {
 		EmployeeShift result = (EmployeeShift) response.getBody();
 		assertEquals(1, result.getEmployeeShiftId());
 		assertFalse(result.getActive());
-		assertEquals(Date.valueOf("2024-01-01"), result.getStartActiveDate());
+		assertEquals(LocalDate.of(2024,01,01), result.getStartActiveDate());
 
 		verify(employeeShiftService, times(1)).updateEmployeeShift(eq(1), any(EmployeeShift.class));
 	}

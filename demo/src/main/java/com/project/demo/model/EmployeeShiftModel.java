@@ -1,6 +1,6 @@
 package com.project.demo.model;
 
-import java.sql.Date;
+import java.time.LocalDate;
 
 public class EmployeeShiftModel {
 
@@ -12,15 +12,15 @@ public class EmployeeShiftModel {
 
 	private Boolean active;
 
-	private Date startActiveDate;
+	private LocalDate startActiveDate;
 
-	private Date endActiveDate;
+	private LocalDate endActiveDate;
 
 	public EmployeeShiftModel() {
 	}
 
 	public EmployeeShiftModel(Integer employee_shift_id, Integer employee_id, Integer shift_id, Boolean active,
-			Date startActiveDate, Date endActiveDate) {
+			LocalDate startActiveDate, LocalDate endActiveDate) {
 
 		this.employee_shift_id = employee_shift_id;
 		this.employee_id = employee_id;
@@ -62,19 +62,19 @@ public class EmployeeShiftModel {
 		this.active = active;
 	}
 
-	public Date getStartActiveDate() {
+	public LocalDate getStartActiveDate() {
 		return startActiveDate;
 	}
 
-	public void setStartActiveDate(Date startActiveDate) {
+	public void setStartActiveDate(LocalDate startActiveDate) {
 		this.startActiveDate = startActiveDate;
 	}
 
-	public Date getEndActiveDate() {
+	public LocalDate getEndActiveDate() {
 		return endActiveDate;
 	}
 
-	public void setEndActiveDate(Date endActiveDate) {
+	public void setEndActiveDate(LocalDate endActiveDate) {
 		this.endActiveDate = endActiveDate;
 	}
 

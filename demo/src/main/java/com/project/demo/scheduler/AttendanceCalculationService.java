@@ -30,7 +30,10 @@ public class AttendanceCalculationService {
 
 	    List<ShiftTimeAttendance> attendancesToCalculate =
 	        shiftTimeAttendanceRepo.findByTotalActiveTimeIsNullAndAttendanceDate(targetDate);
-
+	    if (attendancesToCalculate.isEmpty()) {
+			System.out.println("No attendances To Calculate found");
+			return;
+		}
 	    for (ShiftTimeAttendance attendance : attendancesToCalculate) {
 	        try {
 	            shiftTimeAttendanceService.updateDateAttendance(attendance);

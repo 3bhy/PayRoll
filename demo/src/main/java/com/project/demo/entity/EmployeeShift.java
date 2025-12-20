@@ -1,6 +1,7 @@
 package com.project.demo.entity;
 
-import java.sql.Date;
+import java.time.LocalDate;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -12,36 +13,36 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "employeeShift")
+@Table(name = "employee_shift")
 public class EmployeeShift {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name = "employeeShiftId")
+	@Column(name = "employee_shift_id")
 	private Integer employeeShiftId;
 
 	@ManyToOne(fetch = FetchType.EAGER)
-	@JoinColumn(name = "employeeId")
+	@JoinColumn(name = "employee_id")
 	private Employee employee;
 
 	@ManyToOne(fetch = FetchType.EAGER)
-	@JoinColumn(name = "shiftId")
+	@JoinColumn(name = "shift_id")
 	private Shift shift;
 
 	@Column(name = "active")
 	private Boolean active;
     
-	@Column(name = "startActiveDate")
-	private Date startActiveDate;
+	@Column(name = "start_active_date")
+	private LocalDate startActiveDate;
 	
-	@Column(name = "endActiveDate")
-	private Date endActiveDate;
+	@Column(name = "end_active_date")
+	private LocalDate endActiveDate;
 
 	public EmployeeShift() {
 	}
 
-	public EmployeeShift(Integer employeeShiftId, Employee employee, Shift shift, Boolean active, Date startActiveDate,
-			Date endActiveDate) {
+	public EmployeeShift(Integer employeeShiftId, Employee employee, Shift shift, Boolean active, LocalDate startActiveDate,
+			LocalDate endActiveDate) {
 		this.employeeShiftId = employeeShiftId;
 		this.employee = employee;
 		this.shift = shift;
@@ -82,19 +83,19 @@ public class EmployeeShift {
 		this.active = active;
 	}
 
-	public Date getStartActiveDate() {
+	public LocalDate getStartActiveDate() {
 		return startActiveDate;
 	}
 
-	public void setStartActiveDate(Date startActiveDate) {
+	public void setStartActiveDate(LocalDate startActiveDate) {
 		this.startActiveDate = startActiveDate;
 	}
 
-	public Date getEndActiveDate() {
+	public LocalDate getEndActiveDate() {
 		return endActiveDate;
 	}
 
-	public void setEndActiveDate(Date endActiveDate) {
+	public void setEndActiveDate(LocalDate endActiveDate) {
 		this.endActiveDate = endActiveDate;
 	}
 }

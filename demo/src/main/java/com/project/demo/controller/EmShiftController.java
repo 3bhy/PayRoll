@@ -22,6 +22,8 @@ import com.project.demo.entity.EmployeeShift;
 import com.project.demo.model.EmployeeShiftModel;
 import com.project.demo.service.EmployeeShiftService;
 
+import jakarta.persistence.EntityNotFoundException;
+
 @RestController
 @RequestMapping("/api")
 public class EmShiftController {
@@ -104,4 +106,31 @@ public class EmShiftController {
 					.body(Map.of("message", "Error deleting employee shift: " + e.getMessage()));
 		}
 	}
+	
+	//new Update
+	@GetMapping("/employees/{id}/active-shifts")
+	public ResponseEntity<List<Integer>> getActiveShifts(@PathVariable Integer id) {
+	    return ResponseEntity.ok(employeeShiftService.getActiveShifts(id));
+	}
+	
+	@PostMapping("/swapEmployeeShift")
+	public ResponseEntity<?> swapEmployeeShift(@RequestBody EmployeeShiftModel shiftModel,Boolean temporary) {
+	    try {
+	        EmployeeShift swapEmployeeShift = employeeShiftService.swapShift(shiftModel,temporary);
+	        return ResponseEntity.ok(swapEmployeeShift);
+
+	    } catch (IllegalArgumentException | IllegalStateException e) {
+	        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+	                .body(Map.of("message", e.getMessage()));
+
+	    } catch (EntityNotFoundException e) {
+	        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+	                .body(Map.of("message", e.getMessage()));
+
+	    } catch (Exception e) {
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+	                .body(Map.of("message", "Unexpected error: " + e.getMessage()));
+	    }
+	}
+
 }

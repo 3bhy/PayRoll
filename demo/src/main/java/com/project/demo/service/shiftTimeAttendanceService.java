@@ -151,7 +151,8 @@ public class shiftTimeAttendanceService {
 	// FIXME-DONE
 	public ShiftTime findNearestShiftTimeForEmployee(Integer employeeId, LocalDateTime loginTime) {
 		try {
-			List<ShiftTime> shifts = shiftRepository.findShiftsByEmployeeIdAndDate(employeeId,loginTime.getDayOfWeek().getValue());
+			List<ShiftTime> shifts = shiftRepository.findShiftsByEmployeeIdAndDate(employeeId,
+					loginTime.getDayOfWeek().getValue());
 
 			if (shifts.isEmpty()) {
 				return null;
@@ -184,11 +185,9 @@ public class shiftTimeAttendanceService {
 	// FIXME-DONE
 	public Float calculateTotalIncentiveSales(Integer employeeId, LocalDate date) {
 		try {
-			
 
 			Employee employee = employeeRepository.findById(employeeId)
 					.orElseThrow(() -> new RuntimeException("Employee not found"));
-
 
 			if (employee.getSalesIncentivePercent() == null) {
 				return 0.0f;
@@ -207,7 +206,6 @@ public class shiftTimeAttendanceService {
 				return 0.0f;
 			}
 
-
 			Boolean incentiveOnAllSales = employee.getIncentiveOnAllSales();
 			if (incentiveOnAllSales == null) {
 				incentiveOnAllSales = false;
@@ -220,20 +218,17 @@ public class shiftTimeAttendanceService {
 				result = calculateIncentiveForPersonalSales(employeeId, date, incentivePercent);
 			}
 
-			
-
 			return result;
 
 		} catch (Exception e) {
-			
+
 			return 0.0f;
 		}
 	}
 
 	private Float calculateIncentiveForAllSales(Integer employeeId, LocalDate date, Float incentivePercent) {
-		
-		List<ShiftTime> shifts = getShiftsForEmployee(employeeId, date);
 
+		List<ShiftTime> shifts = getShiftsForEmployee(employeeId, date);
 
 		if (shifts.isEmpty()) {
 			return 0.0f;
@@ -243,7 +238,7 @@ public class shiftTimeAttendanceService {
 
 		for (int i = 0; i < shifts.size(); i++) {
 			ShiftTime shift = shifts.get(i);
-			
+
 			boolean attendedThisShift = didEmployeeAttendThisSpecificShift(employeeId, date, shift);
 
 			if (!attendedThisShift) {
@@ -257,7 +252,6 @@ public class shiftTimeAttendanceService {
 			}
 
 			Float shiftIncentive = salesDuringShift * (incentivePercent / 100);
-			
 
 			totalIncentive += shiftIncentive;
 		}
@@ -270,7 +264,7 @@ public class shiftTimeAttendanceService {
 		if (shift.getDayIndex() != null) {
 			int todayDayIndex = date.getDayOfWeek().getValue();
 			if (shift.getDayIndex() != todayDayIndex) {
-				
+
 				return false;
 			}
 		}
@@ -278,15 +272,14 @@ public class shiftTimeAttendanceService {
 				date);
 
 		if (!attendance.isPresent()) {
-			
+
 			return false;
 		}
 
 		ShiftTimeAttendance att = attendance.get();
-		
 
 		if (att.getTotalActiveTime() == null) {
-			
+
 			return false;
 		}
 
@@ -302,11 +295,9 @@ public class shiftTimeAttendanceService {
 		List<Login> logins = loginRepo.findAllByEmployeeAndDate(employeeId, date);
 
 		if (logins.isEmpty()) {
-			
+
 			return false;
 		}
-
-		
 
 		LocalTime from = shift.getFromTime();
 		LocalTime to = shift.getToTime();
@@ -320,7 +311,6 @@ public class shiftTimeAttendanceService {
 
 			LocalTime loginTime = login.getLoginDateTime().toLocalTime();
 			LocalTime logoutTime = loginTime.plusSeconds(login.getActivityTime().toLocalTime().toSecondOfDay());
-
 
 			boolean attended = false;
 
@@ -339,7 +329,7 @@ public class shiftTimeAttendanceService {
 			if (attended && loginDuration >= 30) {
 
 				return true;
-			} 
+			}
 		}
 
 		return false;
@@ -387,7 +377,6 @@ public class shiftTimeAttendanceService {
 				shiftEnd = shiftEnd.plusDays(1);
 			}
 
-
 			Float sales = salesRepository.calculateAllSalesDuringShiftTime(shiftStart, shiftEnd);
 			return sales != null ? sales : 0.0f;
 		} catch (Exception e) {
@@ -408,7 +397,6 @@ public class shiftTimeAttendanceService {
 				shiftEnd = shiftEnd.plusDays(1);
 			}
 
-			
 			Float sales = salesRepository.calculateEmployeeSalesDuringShiftTime(employeeId, shiftStart, shiftEnd);
 			return sales != null ? sales : 0.0f;
 		} catch (Exception e) {

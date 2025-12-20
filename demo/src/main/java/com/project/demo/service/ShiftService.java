@@ -23,7 +23,7 @@ public class ShiftService {
 
 	public ShiftService(ShiftRepo shiftRepository, CompanyRepo companyRepository) {
 		this.shiftRepository = shiftRepository;
-        this.companyRepository = companyRepository;
+		this.companyRepository = companyRepository;
 
 	}
 

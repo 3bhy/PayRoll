@@ -1,7 +1,5 @@
 package com.project.demo.scheduler;
 
-
-
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -12,38 +10,42 @@ import org.springframework.stereotype.Component;
 import com.project.demo.entity.Login;
 import com.project.demo.repo.LoginRepo;
 import com.project.demo.service.LoginService;
+
 @Component
 public class LoginScheduler {
 
-	 @Autowired
-		private LoginRepo loginRepo;
+	@Autowired
+	private LoginRepo loginRepo;
 
-		@Autowired
-		private LoginService loginService;
-	@Scheduled(cron = "0 0 */12 * * ?")  
-    public void scheduledLockOldLogins() {
-        lockOldLogins();
-    }
-	//TODO no need for a special service class for the scheduler, move this logic to the scheduler
-	//FIXME-DONE
-		public void lockOldLogins() {
+	@Autowired
+	private LoginService loginService;
 
-			try {
-				// select all rows from login whose "locked" is false and loginDateTime is
-				// before now with at least 24 hours
-				LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
-				List<Login> unlockedOldLogins = loginRepo.findUnlockedLoginsBefore24Hours(twentyFourHoursAgo);
+	@Scheduled(cron = "0 0 */12 * * ?")
+	public void scheduledLockOldLogins() {
+		lockOldLogins();
+	}
 
-				if (unlockedOldLogins.isEmpty()) {
-					System.out.println("No old unlocked logins found");
-					return;
-				}
+	// TODO no need for a special service class for the scheduler, move this logic
+	// to the scheduler
+	// FIXME-DONE
+	private void lockOldLogins() {
 
-				// Call lockLogin function
-				loginService.lockLogin(null, unlockedOldLogins);
+		try {
+			// select all rows from login whose "locked" is false and loginDateTime is
+			// before now with at least 24 hours
+			LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
+			List<Login> unlockedOldLogins = loginRepo.findUnlockedLoginsBefore24Hours(twentyFourHoursAgo);
 
-			} catch (Exception e) {
-				e.printStackTrace();
+			if (unlockedOldLogins.isEmpty()) {
+				System.out.println("No old unlocked logins found");
+				return;
 			}
+
+			// Call lockLogin function
+			loginService.lockLogin(null, unlockedOldLogins);
+
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+	}
 }

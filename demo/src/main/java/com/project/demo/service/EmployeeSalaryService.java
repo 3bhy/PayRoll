@@ -13,6 +13,7 @@ import com.project.demo.entity.Employee;
 import com.project.demo.entity.EmployeeSalary;
 import com.project.demo.repo.EmployeeRepo;
 import com.project.demo.repo.EmployeeSalaryRepo;
+import com.project.demo.repo.SalesRepo;
 import com.project.demo.repo.ShiftTimeRepo;
 import com.project.demo.repo.shiftTimeAttendanceRepo;
 
@@ -25,6 +26,8 @@ public class EmployeeSalaryService {
 
 	@Autowired
 	private EmployeeSalaryRepo employeeSalaryRepo;
+	@Autowired
+	private SalesRepo employeeSaleRepo;
 
 	@Autowired
 	private EmployeeRepo employeeRepo;
@@ -215,11 +218,17 @@ public class EmployeeSalaryService {
 		Float calculatedDiscount = employeeSalary.getCalculatedDiscount() != null
 				? employeeSalary.getCalculatedDiscount()
 				: 0f;
+		//new update
+		Float credit = employeeSaleRepo.calculateEmployeeCredit(employeeSalary.getEmployee());
+	    if (credit == null) credit = 0f;
 
-		Float calculatedFinalSalary = calculatedSalary + calculatedIncentive - calculatedDiscount;
+		Float calculatedFinalSalary = calculatedSalary + calculatedIncentive - calculatedDiscount - credit;
 		employeeSalary.setCalculatedFinalSalary(calculatedFinalSalary);
+
 		
+
 	}
+	
 
 	// add discount from user
 	public EmployeeSalary addSalaryDiscount(Integer employeeId, Integer year, Integer month, Float amount,

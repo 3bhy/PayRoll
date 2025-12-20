@@ -28,7 +28,10 @@ public class SalaryCalculationService {
 
 		List<Employee> employeesWithoutSalary = employeeSalaryRepo
 				.findEmployeesWithoutSalary(currentYearMonth.getYear(), currentYearMonth.getMonthValue());
-
+		if (employeesWithoutSalary.isEmpty()) {
+			System.out.println("No employees Without Salary found");
+			return;
+		}
 		for (Employee employee : employeesWithoutSalary) {
 			try {
 				employeeSalaryService.calculateEmployeeSalary(employee.getEmployee(), currentYearMonth.getYear(),
