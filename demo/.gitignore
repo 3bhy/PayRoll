@@ -2,8 +2,8 @@ HELP.md
 target/
 bin/
 .mvn/wrapper/maven-wrapper.jar
-**/src/main/**/target/
-**/src/test/**/target/
+!**/src/main/**/target/
+!**/src/test/**/target/
 
 
 ### STS ###
@@ -14,7 +14,7 @@ bin/
 .settings
 .springBeans
 .sts4-cache
-*.class
+.class
 
 ### IntelliJ IDEA ###
 .idea
