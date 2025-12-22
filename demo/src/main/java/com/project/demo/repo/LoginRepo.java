@@ -41,15 +41,7 @@ public interface LoginRepo extends JpaRepository<Login, Integer> {
 	@Query("SELECT l FROM Login l WHERE l.locked = false AND l.loginDateTime <= :twentyFourHoursAgo")
 	List<Login> findUnlockedLoginsBefore24Hours(@Param("twentyFourHoursAgo") LocalDateTime twentyFourHoursAgo);
 
-	// This is updates
-	// Select shift_time of the employee where now is between its (fromTime - 1) and
-	// toTime
-	// FIXME this didn't take into consideration the day
-	// FIXME-DONE
-	// FIXME this method is related to shift time, why is it here in login repo?
-	// FIXME-DONE in shift time repo
-
-	// Select login of an employee whose “locked” is false and logoutStatus is false
+	// Select login of an employee whose “locked� is false and logoutStatus is false
 	// and within the selected shift_time.
 
 	@Query(value = "SELECT l.* FROM login l " + "JOIN shift_time st ON l.shift_time_id = st.shift_time_id "

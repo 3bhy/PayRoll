@@ -48,9 +48,11 @@ public class shiftTimeAttendanceService {
 	// FIXME may be there is another attendance for the date of the login but not
 	// attached to this login.
 	// this may happen if the employee did a login two times at that date.
-	// FIXME-DONE
-	// FIXME using now is rong as attendance should be related to login
-	// FIXME-DONE
+	// FIXME DONE still the case not fixed, 
+	// finding one shift time by limit the return to 1 leads to 
+	// the possibility of having more than one with no errors which will cause problems later
+	// if the logic says you will not have more than one, no need to limit.
+	// if the logic says that it is normal to get more than one, you have to get them all and deal with this case.
 
 	public void updateDateAttendance(Login login) {
 		LocalDate loginDate = login.getLoginDateTime().toLocalDate();
@@ -88,12 +90,12 @@ public class shiftTimeAttendanceService {
 	// should be controlled and a way to know if this login calculated or not)
 	// or it should be called for every attendance to calculate its full data (in
 	// this case no need to send the login)
-	// FIXME-DONE
+	// FIXME -DONE - logic is still wrong I recommend to remove this method and re-implement it again  
 
 	// Calculate time difference between activity time and shift time
 	// FIXME if the employee attended 2 shift times
 	// the less and overtime will be replaced and keep just one shift time result.
-	// FIXME-DONE
+	// FIXME -DONE still if the employee has 2 shift times a day, the logic will be wrong
 	private void calculateAndSetAttendanceData(ShiftTimeAttendance attendance, List<Login> logins) {
 
 		if (attendance == null) {
@@ -146,9 +148,6 @@ public class shiftTimeAttendanceService {
 	}
 
 	// Find the nearest shift time for employee based on login time
-	// FIXME this method does not return the shift time related to the login as it
-	// uses the current time not the login time
-	// FIXME-DONE
 	public ShiftTime findNearestShiftTimeForEmployee(Integer employeeId, LocalDateTime loginTime) {
 		try {
 			List<ShiftTime> shifts = shiftRepository.findShiftsByEmployeeIdAndDate(employeeId,
@@ -182,7 +181,7 @@ public class shiftTimeAttendanceService {
 
 	// Incentive On All Sales=1
 	// FIXME for one attendance the employee may has more than one shift time
-	// FIXME-DONE
+	// FIXME DONE still the case of having more than one shift time is not covered
 	public Float calculateTotalIncentiveSales(Integer employeeId, LocalDate date) {
 		try {
 
@@ -467,8 +466,6 @@ public class shiftTimeAttendanceService {
 		shiftTimeAttendanceRepository.save(attendance);
 	}
 
-	// TODO fix naming conventions
-	// FIXME-DONE
 	public ShiftTimeAttendance getShiftTimeAttendance(Integer shiftTimeAttendanceId) {
 		if (shiftTimeAttendanceId == null) {
 			return null;

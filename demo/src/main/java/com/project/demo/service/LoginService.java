@@ -69,7 +69,8 @@ public class LoginService {
 
 	// Lock login function
 	// FIXME what do you do with the employeeId?
-	// FIXME-DONE lock the open logins with employeeid
+	// FIXME DONE lock the open logins with employeeid, needs to be reviewed
+	// check if you need this check, and what if employee id is null, will this method work?
 	public List<Login> lockLogin(Integer employeeId, List<Login> activeLogins) {
 		try {
 			if (activeLogins.isEmpty()) {

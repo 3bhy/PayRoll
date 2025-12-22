@@ -13,8 +13,6 @@ import com.project.demo.entity.ShiftTime;
 
 public interface ShiftTimeRepo extends JpaRepository<ShiftTime, Integer>, JpaSpecificationExecutor<ShiftTime> {
 
-	// FIXME why do you compare shift id using the employeeId?
-	// FIXME-DONE id and date
 
 	@Query(value = "SELECT st.* FROM shift_time st " + "WHERE st.shift_id IN ("
 			+ "   SELECT es.shift_id FROM employee_shift es " + "   WHERE es.employee_id = :employeeId "
@@ -35,6 +33,9 @@ public interface ShiftTimeRepo extends JpaRepository<ShiftTime, Integer>, JpaSpe
 			+ "WHERE sta.employee.employeeId = :employeeId")
 	List<Integer> findDistinctDaysWithAttendance(@Param("employeeId") Integer employeeId);
 
+	// This is updates
+	// Select shift_time of the employee where now is between its (fromTime - 1) and
+	// toTime
 	@Query(value = "SELECT st.* " + "FROM shift_time st " + "JOIN shift s ON s.shift_id = st.shift_id "
 			+ "JOIN employee_shift es ON es.shift_id = s.shift_id " + "WHERE es.employee_id = :employeeId "
 			+ "AND es.active = TRUE " + "AND st.day_index = WEEKDAY(CURRENT_DATE) + 1 "

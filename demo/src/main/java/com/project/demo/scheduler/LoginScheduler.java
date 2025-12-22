@@ -25,9 +25,6 @@ public class LoginScheduler {
 		lockOldLogins();
 	}
 
-	// TODO no need for a special service class for the scheduler, move this logic
-	// to the scheduler
-	// FIXME-DONE
 	private void lockOldLogins() {
 
 		try {

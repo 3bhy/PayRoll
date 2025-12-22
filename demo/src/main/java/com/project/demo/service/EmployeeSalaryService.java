@@ -104,7 +104,7 @@ public class EmployeeSalaryService {
 			// FIXME this calculate the salary according to the shift time regardless his
 			// attendance !!
 			// Salary should be calculated according to the attendance
-			// FIXME-DONE
+			// FIXME DONE logic still needs to be revised, what are those workingDays?
 			Integer workingDaysPerMonth = workingDays;
 			return baseSalaryRate * workingDaysPerMonth;
 
@@ -113,16 +113,10 @@ public class EmployeeSalaryService {
 			if (totalActivityTime > 0) {
 				return baseSalaryRate * totalActivityTime;
 			} else {
-				// FIXME here if the employee didn't work through the month,you will give him a
-				// salary equals 1 hour!!
-				// He didn't work this hour!!
-				// FIXME-DONE
 
 				return 0f;
 			}
 		} else if (("MONTH".equals(salaryCycle))) {
-			// FIXME there is still a third valid case which is the monthly salary
-			// FIXME-DONE
 			return baseSalaryRate;
 		} else {
 			// Invalid salary cycle
@@ -150,9 +144,6 @@ public class EmployeeSalaryService {
 	private Integer calculateUniqueWorkingDays(Integer employeeId) {
 
 		List<Integer> distinctDays = shiftTimeRepo.findDistinctDaysWithAttendance(employeeId);
-		// FIXME if distinct days are null, the employee has no active shift. So return
-		// should be zero
-		// FIXME-DONE
 		return distinctDays != null ? distinctDays.size() : 0;
 
 	}
