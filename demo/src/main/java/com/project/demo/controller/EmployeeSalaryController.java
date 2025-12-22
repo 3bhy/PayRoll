@@ -122,7 +122,11 @@ public class EmployeeSalaryController {
     
     //FIXME he should not set the final salary, he should set the main salary, incentive, reward, discount ... etc 
     // and e calculate the final salary.
- //FIXME-DONE
+ //you removed this API and didn't replace it with the one that can define the main salary?
+
+    
+    
+    
     private void validateSalaryParams(Integer employeeId, Integer year, Integer month, Float amount, String reason) {
         if (employeeId == null) {
             throw new IllegalArgumentException("Employee ID cannot be null");
