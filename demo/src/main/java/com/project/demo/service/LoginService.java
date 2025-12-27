@@ -71,7 +71,6 @@ public class LoginService {
 	}
 
 	public List<Login> lockLogin(Integer employeeId, List<Login> activeLogins) {
-	    // التحقق الأساسي
 	    if (employeeId == null) {
 	        throw new IllegalArgumentException("Employee ID is required");
 	    }
@@ -80,7 +79,6 @@ public class LoginService {
 	        return Collections.emptyList();
 	    }
 	    
-	    // تصفية الـ logins الخاصة بالموظف فقط
 	    List<Login> employeeLogins = activeLogins.stream()
 	            .filter(login -> login != null && 
 	                    login.getEmployee() != null && 
@@ -95,26 +93,21 @@ public class LoginService {
 	    
 	    for (Login login : employeeLogins) {
 	        try {
-	            // تجنب إعادة قفل الـ logins المقفلة بالفعل
 	            if (Boolean.TRUE.equals(login.getLocked())) {
 	                lockedLogins.add(login);
 	                continue;
 	            }
 	            
-	            // حساب وقت النشاط إذا لزم الأمر
 	            calculateAndSetActivityTime(login);
 	            
-	            // قفل الـ login
 	            login.setLocked(true);
 	            loginRepository.save(login);
 	            
 	            lockedLogins.add(login);
 	            
-	            // تحديث الـ attendance بعد قفل الـ login
 	            shiftTimeAttendanceService.updateDateAttendance(login);
 	            
 	        } catch (Exception e) {
-	            // تسجيل الخطأ والمتابعة
 	            System.err.println("Failed to lock login " + login.getLoginId() + 
 	                             " for employee " + employeeId + ": " + e.getMessage());
 	        }
