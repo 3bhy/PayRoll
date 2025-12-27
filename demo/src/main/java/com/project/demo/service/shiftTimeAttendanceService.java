@@ -51,43 +51,34 @@ public class shiftTimeAttendanceService {
 		LocalDate loginDate = login.getLoginDateTime().toLocalDate();
 		Integer employeeId = login.getEmployee().getEmployee();
 
-		// الخطوة 1: جلب كل الـ attendances لهذا اليوم
 		List<ShiftTimeAttendance> attendances = shiftTimeAttendanceRepository
 				.findAllByEmployeeAndDate(employeeId, loginDate);
 
-		// الخطوة 2: تحديد الـ attendance المناسب
 		ShiftTimeAttendance attendance;
 		if (attendances.isEmpty()) {
-			// إذا لا يوجد أي attendance، أنشئ جديد
 			attendance = new ShiftTimeAttendance();
 			attendance.setEmployee(login.getEmployee());
 			attendance.setAttendanceDate(loginDate);
 			attendance = shiftTimeAttendanceRepository.save(attendance);
 			employeeSalaryService.updateSalaryOnAttendanceChange(employeeId, loginDate);
 		} else if (attendances.size() == 1) {
-			// إذا يوجد واحد فقط، استخدمه
 			attendance = attendances.get(0);
 		} else {
-			// إذا يوجد أكثر من واحد، اختار المناسب
 			attendance = mergeOrChooseAttendance(attendances, login);
 		}
 
-		// الخطوة 3: ربط الـ login بالـ attendance
 		if (login.getShiftTimeAttendanceId() == null) {
 			login.setShiftTimeAttendanceId(attendance);
 			loginRepo.save(login);
 		}
 
-		// الخطوة 4: إعادة حساب كل الـ logins لهذا اليوم
 		List<Login> allLogins = loginRepo.findAllByEmployeeAndDate(employeeId, loginDate);
 		recalculateAttendanceForMultipleShifts(attendance, allLogins);
 
 		shiftTimeAttendanceRepository.save(attendance);
 	}
 
-	// دالة محسنة لاختيار الـ attendance المناسب
 	private ShiftTimeAttendance mergeOrChooseAttendance(List<ShiftTimeAttendance> attendances, Login login) {
-		// 1. إذا الـ login مربوط مسبقاً
 		if (login.getShiftTimeAttendanceId() != null) {
 			for (ShiftTimeAttendance att : attendances) {
 				if (att.getShiftTimeAttendanceId().equals(login.getShiftTimeAttendanceId().getShiftTimeAttendanceId())) {
@@ -96,19 +87,16 @@ public class shiftTimeAttendanceService {
 			}
 		}
 
-		// 2. إذا كان للـ login شيفت محدد
 		if (login.getShiftTimeId() != null) {
 			Integer shiftTimeId = login.getShiftTimeId().getShiftTimeId();
 			
-			// أولا: ابحث عن attendance فارغ (بدون logins)
 			for (ShiftTimeAttendance att : attendances) {
 				List<Login> attLogins = loginRepo.findAllByShiftTimeAttendanceId(att.getShiftTimeAttendanceId());
 				if (attLogins.isEmpty()) {
-					return att; // attendance فارغ - مثالي للاستخدام
+					return att; 
 				}
 			}
 			
-			// ثانيا: ابحث عن attendance يحتوي على نفس الشيفت
 			for (ShiftTimeAttendance att : attendances) {
 				List<Login> attLogins = loginRepo.findAllByShiftTimeAttendanceId(att.getShiftTimeAttendanceId());
 				boolean hasSameShift = attLogins.stream()
@@ -119,11 +107,9 @@ public class shiftTimeAttendanceService {
 				}
 			}
 			
-			// ثالثا: ابحث عن attendance يحتوي فقط على logins لشيفت واحد
 			for (ShiftTimeAttendance att : attendances) {
 				List<Login> attLogins = loginRepo.findAllByShiftTimeAttendanceId(att.getShiftTimeAttendanceId());
 				if (!attLogins.isEmpty()) {
-					// تحقق إذا كانت كل الـ logins لنفس الشيفت (أي شيفت)
 					Optional<Integer> firstShiftTimeId = attLogins.stream()
 							.filter(l -> l.getShiftTimeId() != null)
 							.map(l -> l.getShiftTimeId().getShiftTimeId())
@@ -135,8 +121,7 @@ public class shiftTimeAttendanceService {
 										firstShiftTimeId.get().equals(l.getShiftTimeId().getShiftTimeId()));
 						
 						if (allSameShift) {
-							// هذا attendance مخصص لشيفت واحد
-							// لا نستخدمه لشيفت مختلف
+							
 							continue;
 						}
 					}
@@ -144,13 +129,12 @@ public class shiftTimeAttendanceService {
 			}
 		}
 
-		// 3. استخدام أحدث attendance (بناءً على ID)
+
 		return attendances.stream()
 				.max(Comparator.comparing(ShiftTimeAttendance::getShiftTimeAttendanceId))
 				.orElse(attendances.get(0));
 	}
 
-	// دالة جديدة لحساب الـ attendance لشيفتات متعددة
 	private void recalculateAttendanceForMultipleShifts(ShiftTimeAttendance attendance, List<Login> allLogins) {
 		if (allLogins == null || allLogins.isEmpty()) {
 			attendance.setTotalActiveTime(LocalTime.of(0, 0, 0));
@@ -160,7 +144,6 @@ public class shiftTimeAttendanceService {
 			return;
 		}
 
-		// 1. تجميع الـ logins حسب الشيفت (shift_time_id)
 		Map<Integer, List<Login>> loginsByShift = new HashMap<>();
 		for (Login login : allLogins) {
 			if (login.getShiftTimeId() != null) {
@@ -169,24 +152,20 @@ public class shiftTimeAttendanceService {
 			}
 		}
 
-		// 2. إذا لم يكن هناك شيفتات محددة، حساب بسيط
 		if (loginsByShift.isEmpty()) {
 			calculateSimpleAttendance(attendance, allLogins);
 			return;
 		}
 
-		// 3. حساب المجاميع لكل الشيفتات
 		Duration totalWorkedAllShifts = Duration.ZERO;
 		Duration totalRequiredAllShifts = Duration.ZERO;
 		Duration totalLessTime = Duration.ZERO;
 		Duration totalOverTime = Duration.ZERO;
 
-		// 4. حساب كل شيفت على حدة
 		for (Map.Entry<Integer, List<Login>> entry : loginsByShift.entrySet()) {
 			Integer shiftTimeId = entry.getKey();
 			List<Login> shiftLogins = entry.getValue();
 
-			// حساب الوقت الفعلي لهذا الشيفت
 			Duration shiftWorked = Duration.ZERO;
 			for (Login login : shiftLogins) {
 				if (login.getActivityTime() != null) {
@@ -196,7 +175,6 @@ public class shiftTimeAttendanceService {
 			}
 			totalWorkedAllShifts = totalWorkedAllShifts.plus(shiftWorked);
 
-			// حساب الوقت المطلوب لهذا الشيفت
 			Optional<ShiftTime> shiftTimeOpt = shiftTimeRepo.findById(shiftTimeId);
 			if (shiftTimeOpt.isPresent()) {
 				ShiftTime shiftTime = shiftTimeOpt.get();
@@ -205,12 +183,10 @@ public class shiftTimeAttendanceService {
 							shiftTime.getTotalTime().toSecondOfDay());
 					totalRequiredAllShifts = totalRequiredAllShifts.plus(shiftRequired);
 
-					// حساب الفرق لهذا الشيفت
 					Duration diff = shiftWorked.minus(shiftRequired);
 					if (diff.isNegative()) {
 						totalLessTime = totalLessTime.plus(diff.abs());
 					} else if (diff.isZero()) {
-						// لا فرق
 					} else {
 						totalOverTime = totalOverTime.plus(diff);
 					}
@@ -218,7 +194,6 @@ public class shiftTimeAttendanceService {
 			}
 		}
 
-		// 5. تعيين القيم في الـ attendance
 		attendance.setTotalActiveTime(LocalTime.ofSecondOfDay(totalWorkedAllShifts.getSeconds()));
 
 		if (!totalLessTime.isZero()) {
@@ -236,7 +211,6 @@ public class shiftTimeAttendanceService {
 		}
 	}
 
-	// دالة بسيطة للحساب عندما لا يكون هناك shift_time_id
 	private void calculateSimpleAttendance(ShiftTimeAttendance attendance, List<Login> logins) {
 		if (attendance == null) {
 			throw new IllegalArgumentException("Attendance must not be null");
@@ -258,12 +232,10 @@ public class shiftTimeAttendanceService {
 
 		attendance.setTotalActiveTime(LocalTime.ofSecondOfDay(totalWorked.getSeconds()));
 		
-		// في حالة عدم وجود shift_time_id، لا نحسب less/over time
 		attendance.setLessTime(null);
 		attendance.setOverTime(null);
 	}
 
-	// باقي الدوال كما هي بدون تغيير...
 	// Find the nearest shift time for employee based on login time
 	public ShiftTime findNearestShiftTimeForEmployee(Integer employeeId, LocalDateTime loginTime) {
 		try {
