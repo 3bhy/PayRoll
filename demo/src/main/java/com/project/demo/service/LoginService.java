@@ -6,8 +6,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -67,31 +70,57 @@ public class LoginService {
 		return processLogin(loginModel.getEmployeeId(), loginModel.getShiftTimeAttendanceId());
 	}
 
-	// Lock login function
-	// FIXME what do you do with the employeeId?
-	// FIXME DONE lock the open logins with employeeid, needs to be reviewed
-	// check if you need this check, and what if employee id is null, will this method work?
 	public List<Login> lockLogin(Integer employeeId, List<Login> activeLogins) {
-		try {
-			if (activeLogins.isEmpty()) {
-				return activeLogins;
-			}
-
-			for (Login login : activeLogins) {
-
-				if (!login.getEmployee().getEmployee().equals(employeeId)) {
-					throw new IllegalArgumentException("Login does not belong to employee " + employeeId);
-				}
-
-				calculateAndSetActivityTime(login);
-				login.setLocked(true);
-				loginRepository.save(login);
-			}
-			return activeLogins;
-
-		} catch (Exception e) {
-			throw new RuntimeException("Error while locking logins for employee " + employeeId, e);
-		}
+	    // التحقق الأساسي
+	    if (employeeId == null) {
+	        throw new IllegalArgumentException("Employee ID is required");
+	    }
+	    
+	    if (activeLogins == null) {
+	        return Collections.emptyList();
+	    }
+	    
+	    // تصفية الـ logins الخاصة بالموظف فقط
+	    List<Login> employeeLogins = activeLogins.stream()
+	            .filter(login -> login != null && 
+	                    login.getEmployee() != null && 
+	                    employeeId.equals(login.getEmployee().getEmployee()))
+	            .collect(Collectors.toList());
+	    
+	    if (employeeLogins.isEmpty()) {
+	        return Collections.emptyList();
+	    }
+	    
+	    List<Login> lockedLogins = new ArrayList<>();
+	    
+	    for (Login login : employeeLogins) {
+	        try {
+	            // تجنب إعادة قفل الـ logins المقفلة بالفعل
+	            if (Boolean.TRUE.equals(login.getLocked())) {
+	                lockedLogins.add(login);
+	                continue;
+	            }
+	            
+	            // حساب وقت النشاط إذا لزم الأمر
+	            calculateAndSetActivityTime(login);
+	            
+	            // قفل الـ login
+	            login.setLocked(true);
+	            loginRepository.save(login);
+	            
+	            lockedLogins.add(login);
+	            
+	            // تحديث الـ attendance بعد قفل الـ login
+	            shiftTimeAttendanceService.updateDateAttendance(login);
+	            
+	        } catch (Exception e) {
+	            // تسجيل الخطأ والمتابعة
+	            System.err.println("Failed to lock login " + login.getLoginId() + 
+	                             " for employee " + employeeId + ": " + e.getMessage());
+	        }
+	    }
+	    
+	    return lockedLogins;
 	}
 
 	// calculate active time

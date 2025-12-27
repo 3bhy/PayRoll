@@ -41,7 +41,7 @@ public interface LoginRepo extends JpaRepository<Login, Integer> {
 	@Query("SELECT l FROM Login l WHERE l.locked = false AND l.loginDateTime <= :twentyFourHoursAgo")
 	List<Login> findUnlockedLoginsBefore24Hours(@Param("twentyFourHoursAgo") LocalDateTime twentyFourHoursAgo);
 
-	// Select login of an employee whose “locked� is false and logoutStatus is false
+	// Select login of an employee whose “locked� is false and logoutStatus is false
 	// and within the selected shift_time.
 
 	@Query(value = "SELECT l.* FROM login l " + "JOIN shift_time st ON l.shift_time_id = st.shift_time_id "
@@ -58,4 +58,20 @@ public interface LoginRepo extends JpaRepository<Login, Integer> {
 
 	@Query("SELECT l FROM Login l WHERE l.employee.id = :employeeId AND DATE(l.loginDateTime) = :date")
 	List<Login> findAllByEmployeeAndDate(@Param("employeeId") Integer employeeId, @Param("date") LocalDate date);
+	@Query(value = """
+		    SELECT * FROM login l 
+		    WHERE l.shift_time_attendance_id = :attendanceId
+		    AND l.shift_time_id = :shiftTimeId
+		    ORDER BY l.login_date_time
+		    """, nativeQuery = true)
+		List<Login> findAllByShiftTimeAttendanceIdAndShiftTimeId(
+		        @Param("attendanceId") Integer attendanceId,
+		        @Param("shiftTimeId") Integer shiftTimeId);
+
+		@Query(value = """
+		    SELECT * FROM login l 
+		    WHERE l.shift_time_attendance_id = :attendanceId
+		    ORDER BY l.login_date_time
+		    """, nativeQuery = true)
+		List<Login> findAllByShiftTimeAttendanceId(@Param("attendanceId") Integer attendanceId);
 }

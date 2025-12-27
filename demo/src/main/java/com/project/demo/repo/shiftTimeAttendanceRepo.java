@@ -32,5 +32,28 @@ public interface shiftTimeAttendanceRepo extends JpaRepository<ShiftTimeAttendan
 	@Query(value = "SELECT * FROM shift_time_attendance st WHERE st.employee_id = :employeeId AND st.attendance_date = :attendanceDate LIMIT 1", nativeQuery = true)
 	Optional<ShiftTimeAttendance> findOneByEmployeeAndDate(@Param("employeeId") Integer employeeId,
 			@Param("attendanceDate") LocalDate attendanceDate);
+	
+	@Query(value = """
+		    SELECT * FROM shift_time_attendance st 
+		    WHERE st.employee_id = :employeeId 
+		    AND st.attendance_date = :attendanceDate
+		    """, nativeQuery = true)
+		List<ShiftTimeAttendance> findAllByEmployeeAndDate(
+		        @Param("employeeId") Integer employeeId,
+		        @Param("attendanceDate") LocalDate attendanceDate);
+	
+	
+	@Query("""
+		    SELECT s
+		    FROM ShiftTimeAttendance s
+		    WHERE s.employee.id = :employeeId
+		      AND YEAR(s.attendanceDate) = :year
+		      AND MONTH(s.attendanceDate) = :month
+		""")
+		List<ShiftTimeAttendance> findByEmployeeAndMonth(
+		        @Param("employeeId") Integer employeeId,
+		        @Param("year") Integer year,
+		        @Param("month") Integer month
+		);
 
 }

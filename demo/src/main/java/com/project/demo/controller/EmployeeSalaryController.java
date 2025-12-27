@@ -124,7 +124,7 @@ public class EmployeeSalaryController {
     // and e calculate the final salary.
  //you removed this API and didn't replace it with the one that can define the main salary?
 
-    
+   //FIXME_DONE i take main salary and salary cycle when add employee
     
     
     private void validateSalaryParams(Integer employeeId, Integer year, Integer month, Float amount, String reason) {

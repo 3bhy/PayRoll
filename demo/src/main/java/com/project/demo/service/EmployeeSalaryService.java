@@ -1,6 +1,8 @@
 package com.project.demo.service;
 
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.Year;
 import java.util.List;
 import java.util.Optional;
@@ -11,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.project.demo.entity.Employee;
 import com.project.demo.entity.EmployeeSalary;
+import com.project.demo.entity.ShiftTimeAttendance;
 import com.project.demo.repo.EmployeeRepo;
 import com.project.demo.repo.EmployeeSalaryRepo;
 import com.project.demo.repo.SalesRepo;
@@ -94,35 +97,81 @@ public class EmployeeSalaryService {
 	}
 
 	// calculated salary
+	// calculated salary
 	private Float calculateBaseSalary(Employee employee, Integer year, Integer month) {
-		String salaryCycle = employee.getSalaryCycle();
-		Float baseSalaryRate = employee.getSalary() != null ? employee.getSalary() : 0.0f;
+	    String salaryCycle = employee.getSalaryCycle();
+	    Float baseSalaryRate = employee.getSalary() != null ? employee.getSalary() : 0.0f;
 
-		Integer workingDays = calculateUniqueWorkingDays(employee.getEmployee());
+	    if (baseSalaryRate <= 0) {
+	        return 0.0f;
+	    }
 
-		if ("DAY".equals(salaryCycle)) {
-			// FIXME this calculate the salary according to the shift time regardless his
-			// attendance !!
-			// Salary should be calculated according to the attendance
-			// FIXME DONE logic still needs to be revised, what are those workingDays?
-			Integer workingDaysPerMonth = workingDays;
-			return baseSalaryRate * workingDaysPerMonth;
+	    if ("DAY".equals(salaryCycle)) {
+	        // FIXME this calculate the salary according to the shift time regardless his
+	        // attendance !!
+	        // Salary should be calculated according to the attendance
+	        // FIXME DONE logic still needs to be revised, what are those workingDays?
+	        return calculateDailySalary(employee, year, month, baseSalaryRate);
 
-		} else if ("HOUR".equals(salaryCycle)) {
-			Float totalActivityTime = getTotalActivityTime(employee.getEmployee(), year, month);
-			if (totalActivityTime > 0) {
-				return baseSalaryRate * totalActivityTime;
-			} else {
+	    } else if ("HOUR".equals(salaryCycle)) {
+	        return calculateHourlySalary(employee, year, month, baseSalaryRate);
+	        
+	    } else if (("MONTH".equals(salaryCycle))) {
+	        return calculateMonthlySalary(employee, year, month, baseSalaryRate);
+	    } else {
+	        // Invalid salary cycle
+	        throw new IllegalArgumentException(
+	                "Invalid salary cycle '" + salaryCycle + "' for employee " + employee.getEmployee());
+	    }
+	}
 
-				return 0f;
-			}
-		} else if (("MONTH".equals(salaryCycle))) {
-			return baseSalaryRate;
-		} else {
-			// Invalid salary cycle
-			throw new IllegalArgumentException(
-					"Invalid salary cycle '" + salaryCycle + "' for employee " + employee.getEmployee());
-		}
+	private Float calculateDailySalary(Employee employee, Integer year, Integer month, Float dailyRate) {
+	    try {
+	        Integer employeeId = employee.getEmployee();
+	        
+	        Integer actualAttendanceDays = calculateAttendanceDays(employeeId, year, month);
+	        
+	        return actualAttendanceDays * dailyRate;
+	        
+	    } catch (Exception e) {
+	        System.err.println("Error calculating daily salary: " + e.getMessage());
+	        return 0.0f;
+	    }
+	}
+
+	private Integer calculateAttendanceDays(Integer employeeId, Integer year, Integer month) {
+	    try {
+	        List<ShiftTimeAttendance> monthlyAttendances = 
+	                shiftTimeAttendanceRepository.findByEmployeeAndMonth(employeeId, year, month);
+	        
+	        if (monthlyAttendances == null || monthlyAttendances.isEmpty()) {
+	            return 0;
+	        }
+	        
+	        return monthlyAttendances.size();
+	        
+	    } catch (Exception e) {
+	        System.err.println("Error calculating attendance days: " + e.getMessage());
+	        return 0;
+	    }
+	}
+
+	private Float calculateHourlySalary(Employee employee, Integer year, Integer month, Float hourlyRate) {
+	    try {
+	        Integer employeeId = employee.getEmployee();
+	        
+	        Float totalActualHours = getTotalActivityTime(employeeId, year, month);
+	        
+	        return totalActualHours * hourlyRate;
+	        
+	    } catch (Exception e) {
+	        System.err.println("Error calculating hourly salary: " + e.getMessage());
+	        return 0.0f;
+	    }
+	}
+
+	private Float calculateMonthlySalary(Employee employee, Integer year, Integer month, Float monthlySalary) {
+	    return employee.getSalary() != null ? employee.getSalary() : 0.0f;
 	}
 
 	private Float getTotalActivityTime(Integer employeeId, Integer year, Integer month) {
@@ -132,21 +181,15 @@ public class EmployeeSalaryService {
 	        return 0f;
 	    }
 
-	    String[] parts = totalTimeStr.split(":");
-	    int hours = Integer.parseInt(parts[0]);
-	    int minutes = Integer.parseInt(parts[1]);
-	    int seconds = Integer.parseInt(parts[2]);
+	    LocalTime time = LocalTime.parse(totalTimeStr);
+	    Duration duration = Duration.ofSeconds(
+	        time.toSecondOfDay()
+	    );
 
-	    return hours + (minutes / 60f) + (seconds / 3600f);
+	    return duration.toMinutes() / 60f;
 	}
 
-
-	private Integer calculateUniqueWorkingDays(Integer employeeId) {
-
-		List<Integer> distinctDays = shiftTimeRepo.findDistinctDaysWithAttendance(employeeId);
-		return distinctDays != null ? distinctDays.size() : 0;
-
-	}
+	
 
 	private EmployeeSalary createOrUpdateSalary(Employee employee, Integer year, Integer month, Float mainSalary,
 			Float calculatedSalary, Float calculatedIncentive) {
