@@ -70,8 +70,13 @@ public class LoginService {
 		return processLogin(loginModel.getEmployeeId(), loginModel.getShiftTimeAttendanceId());
 	}
 
+	// FIXME what do you do with the employeeId?
+	// FIXME DONE lock the open logins with employeeid, needs to be reviewed
+	// check if you need this check, and what if employee id is null, will this method work?
+
 	public List<Login> lockLogin(Integer employeeId, List<Login> activeLogins) {
 	    if (employeeId == null) {
+	    	//XXX you already call the method with null at some places
 	        throw new IllegalArgumentException("Employee ID is required");
 	    }
 	    

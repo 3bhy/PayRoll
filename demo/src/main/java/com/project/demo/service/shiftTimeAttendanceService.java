@@ -47,6 +47,16 @@ public class shiftTimeAttendanceService {
 	@Autowired
 	private LoginRepo loginRepo;
 
+	// If attendance doesn't exist, create a new one and save it
+	// FIXME may be there is another attendance for the date of the login but not
+	// attached to this login.
+	// this may happen if the employee did a login two times at that date.
+	// FIXME DONE still the case not fixed, 
+	// finding one shift time by limit the return to 1 leads to 
+	// the possibility of having more than one with no errors which will cause problems later
+	// if the logic says you will not have more than one, no need to limit.
+	// if the logic says that it is normal to get more than one, you have to get them all and deal with this case.
+
 	public void updateDateAttendance(Login login) {
 		LocalDate loginDate = login.getLoginDateTime().toLocalDate();
 		Integer employeeId = login.getEmployee().getEmployee();
@@ -60,6 +70,7 @@ public class shiftTimeAttendanceService {
 			attendance.setEmployee(login.getEmployee());
 			attendance.setAttendanceDate(loginDate);
 			attendance = shiftTimeAttendanceRepository.save(attendance);
+			//XXX why do you recalculate salary with creating new attendance? 
 			employeeSalaryService.updateSalaryOnAttendanceChange(employeeId, loginDate);
 		} else if (attendances.size() == 1) {
 			attendance = attendances.get(0);
@@ -78,6 +89,18 @@ public class shiftTimeAttendanceService {
 		shiftTimeAttendanceRepository.save(attendance);
 	}
 
+	// FIXME this method logic and role should be revised
+		// should this method be called to update the attendance with every login (this
+		// should be controlled and a way to know if this login calculated or not)
+		// or it should be called for every attendance to calculate its full data (in
+		// this case no need to send the login)
+		// FIXME -DONE - logic is still wrong I recommend to remove this method and re-implement it again  
+
+		// Calculate time difference between activity time and shift time
+		// FIXME if the employee attended 2 shift times
+		// the less and overtime will be replaced and keep just one shift time result.
+		// FIXME -DONE still if the employee has 2 shift times a day, the logic will be wrong
+		
 	private ShiftTimeAttendance mergeOrChooseAttendance(List<ShiftTimeAttendance> attendances, Login login) {
 		if (login.getShiftTimeAttendanceId() != null) {
 			for (ShiftTimeAttendance att : attendances) {
@@ -144,6 +167,8 @@ public class shiftTimeAttendanceService {
 			return;
 		}
 
+		//FIXME here you get the shift from the login then get its Id 
+		// and below at 203 you re-fetch the shift using the ID !!! 
 		Map<Integer, List<Login>> loginsByShift = new HashMap<>();
 		for (Login login : allLogins) {
 			if (login.getShiftTimeId() != null) {
@@ -265,6 +290,10 @@ public class shiftTimeAttendanceService {
 	}
 
 	// calculate total incentive sales
+	// Incentive On All Sales=1
+		// FIXME for one attendance the employee may has more than one shift time
+		// FIXME DONE still the case of having more than one shift time is not covered
+		
 	public Float calculateTotalIncentiveSales(Integer employeeId, LocalDate date) {
 		try {
 			Employee employee = employeeRepository.findById(employeeId)
