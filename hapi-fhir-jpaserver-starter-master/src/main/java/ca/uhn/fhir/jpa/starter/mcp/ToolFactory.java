@@ -201,52 +201,63 @@ public class ToolFactory {
 
 	// TODO Add a tool for the CDS Hooks discovery endpoint
 	// Alternatively, should each service be a separate tool?
+	private static final String CDS_HOOKS_DISCOVERY_SCHEMA =
+			"""
+			{
+			  "type": "object",
+			  "properties": {}
+			}
+			""";
 
 	// TODO Add other fields from https://cds-hooks.hl7.org/STU2/#http-request-1
 	// TODO Context here is for the patient-view hook, https://cds-hooks.hl7.org/hooks/STU1/patient-view.html#context
 	private static final String CALL_CDS_HOOK_SCHEMA_2_0_1 =
 			"""
-		{
-		"type": "object",
-		"properties": {
-			"service": {
-				"type": "string",
-				"description": "The CDS Service to call."
-			},
-			"hook": {
-				"type": "string",
-				"description": "The hook that triggered this CDS Service call."
-			},
-			"hookInstance": {
-				"type": "string",
-				"description": "A universally unique identifier (UUID) for this particular hook call."
-			},
-			"hookContext": {
-				"type": "object",
-				"description": "Hook-specific contextual data that the CDS service will need.",
-				"properties": {
-					"userId": {
-						"type": "string",
-						"description": "The id of the current user. Must be in the format [ResourceType]/[id]."
-					},
-					"patientId": {
-						"type": "string",
-						"description": "The FHIR Patient.id of the current patient in context"
-					},
-					"encounterId": {
-						"type": "string",
-						"description": "The FHIR Encounter.id of the current encounter in context."
-					}
-				}
-			},
-			"prefetch": {
-				"type": "object",
-				"description": "Additional data to prefetch for the CDS service call."
+			{
+			  "type": "object",
+			  "properties": {
+			    "service": {
+			      "type": "string",
+			      "description": "The CDS Service to call."
+			    },
+			    "hook": {
+			      "type": "string",
+			      "description": "The hook that triggered this CDS Service call."
+			    },
+			    "hookInstance": {
+			      "type": "string",
+			      "description": "A universally unique identifier (UUID) for this particular hook call."
+			    },
+			    "fhirServer": {
+			      "type": "string",
+			      "description": "Base URL of the FHIR server"
+			    },
+			    "context": {
+			      "type": "object",
+			      "description": "FHIR context resources"
+			    },
+			    "hookContext": {
+			      "type": "object",
+			      "description": "Hook-specific contextual data",
+			      "properties": {
+			        "userId": { "type": "string" },
+			        "patientId": { "type": "string" },
+			        "encounterId": { "type": "string" }
+			      }
+			    },
+			    "prefetch": {
+			      "type": "object",
+			      "description": "Additional data to prefetch"
+			    },
+			    "lang": {
+			      "type": "string",
+			      "description": "Language preference"
+			    }
+			  },
+			  "required": ["service", "hook", "hookInstance", "hookContext"]
 			}
-		},
-		"required": ["service", "hook", "hookInstance", "hookContext"]
-		}
-		""";
+			""";
+
 
 	public static Tool readFhirResource() throws JsonProcessingException {
 		return new Tool.Builder()
@@ -327,6 +338,13 @@ public class ToolFactory {
 				.inputSchema(mapper.readValue(CALL_CDS_HOOK_SCHEMA_2_0_1, McpSchema.JsonSchema.class))
 				.build();
 	}
+	public static Tool discoverCdsServices() throws JsonProcessingException {
+		return new Tool.Builder()
+				.name("discover-cds-services")
+				.description("Discover available CDS Hooks services")
+				.inputSchema(mapper.readValue(CDS_HOOKS_DISCOVERY_SCHEMA, McpSchema.JsonSchema.class))
+				.build();
+	}
 
 	public static final ObjectMapper mapper = new ObjectMapper()
 			.enable(JsonParser.Feature.ALLOW_COMMENTS)
@@ -335,3 +353,4 @@ public class ToolFactory {
 			.enable(JsonParser.Feature.INCLUDE_SOURCE_IN_LOCATION)
 			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 }
+

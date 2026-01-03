@@ -66,54 +66,77 @@ public class McpCdsBridge implements McpBridge {
 				.build();
 	}
 
-	private @NotNull CdsHooksRequest constructCdsHooksRequest(McpSchema.CallToolRequest callToolRequest) {
 
 		// TODO Build up CDS Hooks request JSON from contextMap
-		var contextMap = callToolRequest.arguments();
-		var request = new CdsHooksRequest();
-		request.setHook(contextMap.get("hook").toString());
-		request.setHookInstance(contextMap.get("hookInstance").toString());
+		private @NotNull CdsHooksRequest constructCdsHooksRequest(McpSchema.CallToolRequest callToolRequest) {
 
-		// Context
-		var context = new CdsServiceRequestContextJson();
-		Object hookContextObj = contextMap.get("hookContext");
-		if (hookContextObj instanceof Map<?, ?>) {
-		    Map<?, ?> hookContext = (Map<?, ?>) hookContextObj;
+		    var contextMap = callToolRequest.arguments();
+		    var request = new CdsHooksRequest();
 
-		    if (hookContext.containsKey("userId")) {
-		        context.put("userId", String.valueOf(hookContext.get("userId")));
+		    request.setHook(contextMap.get("hook").toString());
+		    request.setHookInstance(contextMap.get("hookInstance").toString());
+
+		    if (contextMap.containsKey("fhirServer")) {
+		        request.setFhirServer(contextMap.get("fhirServer").toString());
 		    }
-		    if (hookContext.containsKey("patientId")) {
-		        context.put("patientId", String.valueOf(hookContext.get("patientId")));
+
+		    if (contextMap.containsKey("lang")) {
+		        request.setLang(contextMap.get("lang").toString());
 		    }
-		    if (hookContext.containsKey("encounterId")) {
-		        context.put("encounterId", String.valueOf(hookContext.get("encounterId")));
+
+		    var context = new CdsServiceRequestContextJson();
+		    Object hookContextObj = contextMap.get("hookContext");
+		    if (hookContextObj instanceof Map<?, ?>) {
+		        Map<?, ?> hookContext = (Map<?, ?>) hookContextObj;
+
+		        if (hookContext.containsKey("userId")) {
+		            context.put("userId", String.valueOf(hookContext.get("userId")));
+		        }
+		        if (hookContext.containsKey("patientId")) {
+		            context.put("patientId", String.valueOf(hookContext.get("patientId")));
+		        }
+		        if (hookContext.containsKey("encounterId")) {
+		            context.put("encounterId", String.valueOf(hookContext.get("encounterId")));
+		        }
+
+		        for (Map.Entry<?, ?> entry : hookContext.entrySet()) {
+		            String key = String.valueOf(entry.getKey());
+		            if (!context.containsKey(key)) {  
+		            	context.put(key, entry.getValue());
+		            }
+		        }
 		    }
+		    request.setContext(context);
+
+		    if (contextMap.containsKey("prefetch")) {
+		        Object prefetchObj = contextMap.get("prefetch");
+		        if (prefetchObj instanceof Map) {
+		            @SuppressWarnings("unchecked")
+		            Map<String, Object> prefetchMap = (Map<String, Object>) prefetchObj;
+		            for (Map.Entry<String, Object> entry : prefetchMap.entrySet()) {
+		                String key = entry.getKey();
+		                Object value = entry.getValue();
+
+		                try {
+		                    var resource = fhirContext.newJsonParser().parseResource(new Gson().toJson(value));
+		                    request.addPrefetch(key, resource);
+		                } catch (Exception e) {
+		                    logger.warn("Failed to parse prefetch resource '{}': {}", key, e.getMessage());
+		                }
+		            }
+		        } else {
+		            logger.warn("Prefetch object is not a Map: {}", 
+		                        prefetchObj == null ? "null" : prefetchObj.getClass().getName());
+		        }
+		    }
+
+		    if (contextMap.containsKey("fhirAuthorization")) {
+		        @SuppressWarnings("unchecked")
+		        Map<String, Object> authMap = (Map<String, Object>) contextMap.get("fhirAuthorization");
+		        request.setFhirAuthorization(authMap);
+		    }
+
+		    return request;
 		}
-		request.setContext(context);
 
-		// Prefetch
-		if (contextMap.containsKey("prefetch")) {
-			var prefetch = contextMap.get("prefetch");
-			if (prefetch instanceof Map) {
-				@SuppressWarnings("unchecked")
-				var prefetchMap = (Map<String, Object>) prefetch;
-				for (Map.Entry<String, Object> entry : prefetchMap.entrySet()) {
-					var key = entry.getKey();
-					var value = entry.getValue();
-
-					// Object is a String -> Object map
-					// Use a standard JSON library to convert it
-					var resource = fhirContext.newJsonParser().parseResource(new Gson().toJson(value));
-					request.addPrefetch(key, resource);
-				}
-			} else {
-				logger.warn(
-						"Prefetch object is not a Map: {}",
-						prefetch == null ? "null" : prefetch.getClass().getName());
-			}
-		}
-
-		return request;
-	}
 }

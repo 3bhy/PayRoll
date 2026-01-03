@@ -11,6 +11,7 @@ import ca.uhn.fhir.jpa.model.entity.StorageSettings;
 import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.jpa.starter.elastic.ElasticsearchBootSvcImpl;
 import ca.uhn.fhir.jpa.starter.util.JpaHibernatePropertiesProvider;
+import ca.uhn.fhir.jpa.subscription.channel.subscription.SubscriptionDeliveryHandlerFactory;
 import ca.uhn.fhir.jpa.subscription.match.deliver.email.EmailSenderImpl;
 import ca.uhn.fhir.jpa.subscription.match.deliver.email.IEmailSender;
 import ca.uhn.fhir.rest.server.mail.MailConfig;
@@ -19,6 +20,7 @@ import com.google.common.base.Strings;
 import org.hl7.fhir.r4.model.Bundle.BundleType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.context.annotation.*;
@@ -400,19 +402,24 @@ public class FhirServerConfigCommon {
 	}
 
 	@Bean
+	@ConditionalOnProperty(prefix = "subscription.email", name = "host")
 	public IEmailSender emailSender(AppProperties appProperties) {
-		if (appProperties.getSubscription() != null
-				&& appProperties.getSubscription().getEmail() != null) {
-
-			return buildEmailSender(appProperties.getSubscription().getEmail());
-		}
-
+	    return buildEmailSender(appProperties.getSubscription().getEmail());
+	}
 		// Return a dummy anonymous function instead of null. Spring does not like null beans.
 		// TODO Get the signature of
 		// ca.uhn.fhir.jpa.subscription.channel.subscription.SubscriptionDeliveryHandlerFactory
 		//  changed so it does not require an instance of an IEmailSender
-		return theDetails -> {};
+	//FIXME-DONE
+	@Bean
+	public SubscriptionDeliveryHandlerFactory subscriptionDeliveryHandlerFactory(
+	        ObjectProvider<IEmailSender> emailSenderProvider) {
+
+	    return new SubscriptionDeliveryHandlerFactory(
+	            emailSenderProvider.getIfAvailable()
+	    );
 	}
+
 
 	private static IEmailSender buildEmailSender(AppProperties.Subscription.Email email) {
 
