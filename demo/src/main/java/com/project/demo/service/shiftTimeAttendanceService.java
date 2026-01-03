@@ -65,7 +65,7 @@ public class shiftTimeAttendanceService {
 
 	public void updateDateAttendance(Login login) {
 		LocalDate loginDate = login.getLoginDateTime().toLocalDate();
-		Integer employeeId = login.getEmployee().getEmployee();
+		Integer employeeId = login.getEmployee().getEmployeeId();
 
 		Optional<ShiftTimeAttendance> existingAttendance = shiftTimeAttendanceRepository
 				.findAll(ShiftTimeAttendanceSpec.byEmployeeAndDate(employeeId, loginDate)).stream().findFirst();
@@ -175,7 +175,7 @@ public class shiftTimeAttendanceService {
 		}
 
 		attendance.setTotalActiveTime(LocalTime.ofSecondOfDay(totalWorkedAllShifts.getSeconds()));
-		employeeSalaryService.calculateEmployeeSalary(attendance.getEmployee().getEmployee(),
+		employeeSalaryService.calculateEmployeeSalary(attendance.getEmployee().getEmployeeId(),
 				attendance.getAttendanceDate().getYear(), attendance.getAttendanceDate().getMonthValue());
 
 		if (!totalLessTime.isZero()) {
@@ -213,7 +213,7 @@ public class shiftTimeAttendanceService {
 		}
 
 		attendance.setTotalActiveTime(LocalTime.ofSecondOfDay(totalWorked.getSeconds()));
-		employeeSalaryService.calculateEmployeeSalary(attendance.getEmployee().getEmployee(),
+		employeeSalaryService.calculateEmployeeSalary(attendance.getEmployee().getEmployeeId(),
 				attendance.getAttendanceDate().getYear(), attendance.getAttendanceDate().getMonthValue());
 
 		attendance.setLessTime(null);
@@ -530,7 +530,7 @@ public class shiftTimeAttendanceService {
 			return;
 		}
 
-		Integer employeeId = attendance.getEmployee().getEmployee();
+		Integer employeeId = attendance.getEmployee().getEmployeeId();
 		LocalDate attendanceDate = attendance.getAttendanceDate();
 		List<Login> logins = loginRepo.findAll(LoginSpec.byEmployeeAndDate(employeeId, attendanceDate));
 

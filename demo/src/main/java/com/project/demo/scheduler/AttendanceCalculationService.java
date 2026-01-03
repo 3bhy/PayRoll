@@ -42,7 +42,7 @@ public class AttendanceCalculationService {
 	        } catch (Exception e) {
 	            System.err.println(
 	                "Error calculating attendance for employee ID: "
-	                + attendance.getEmployee().getEmployee()
+	                + attendance.getEmployee().getEmployeeId()
 	            );
 	        }
 	    }

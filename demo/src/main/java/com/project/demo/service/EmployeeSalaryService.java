@@ -67,7 +67,7 @@ public class EmployeeSalaryService {
 
 		Float calculatedSalary = calculateBaseSalary(employee, year, month);
 
-		Float calculatedIncentive = calculateMonthlyIncentive(employee.getEmployee(), year, month);
+		Float calculatedIncentive = calculateMonthlyIncentive(employee.getEmployeeId(), year, month);
 		return createOrUpdateSalary(employee, year, month, mainSalary, calculatedSalary, calculatedIncentive);
 
 	}
@@ -119,13 +119,13 @@ public class EmployeeSalaryService {
 		} else {
 			// Invalid salary cycle
 			throw new IllegalArgumentException(
-					"Invalid salary cycle '" + salaryCycle + "' for employee " + employee.getEmployee());
+					"Invalid salary cycle '" + salaryCycle + "' for employee " + employee.getEmployeeId());
 		}
 	}
 
 	private Float calculateDailySalary(Employee employee, Integer year, Integer month, Float dailyRate) {
 		try {
-			Integer employeeId = employee.getEmployee();
+			Integer employeeId = employee.getEmployeeId();
 
 			Integer actualAttendanceDays = calculateAttendanceDays(employeeId, year, month);
 
@@ -156,7 +156,7 @@ public class EmployeeSalaryService {
 
 	private Float calculateHourlySalary(Employee employee, Integer year, Integer month, Float hourlyRate) {
 		try {
-			Integer employeeId = employee.getEmployee();
+			Integer employeeId = employee.getEmployeeId();
 
 			Float totalActualHours = getTotalActivityTime(employeeId, year, month);
 
@@ -189,7 +189,7 @@ public class EmployeeSalaryService {
 	private EmployeeSalary createOrUpdateSalary(Employee employee, Integer year, Integer month, Float mainSalary,
 			Float calculatedSalary, Float calculatedIncentive) {
 		Optional<EmployeeSalary> existingSalary = employeeSalaryRepo
-				.findOne(EmployeeSalarySpec.hasEmployee(employee.getEmployee()).and(EmployeeSalarySpec.hasYear(year))
+				.findOne(EmployeeSalarySpec.hasEmployee(employee.getEmployeeId()).and(EmployeeSalarySpec.hasYear(year))
 						.and(EmployeeSalarySpec.hasMonth(month)));
 
 		EmployeeSalary salary;
@@ -201,7 +201,7 @@ public class EmployeeSalaryService {
 			salary.setCalculatedDiscount(0f);
 		} else {
 			salary = new EmployeeSalary();
-			salary.setEmployeeId(employee.getEmployee());
+			salary.setEmployeeId(employee.getEmployeeId());
 			salary.setYear(year);
 			salary.setMonth(month);
 			salary.setSalaryDate(LocalDate.now());
@@ -430,7 +430,7 @@ public class EmployeeSalaryService {
 
 	public EmployeeSalary createEmployeeSalary(Employee employee) {
 		EmployeeSalary employeeSalary = new EmployeeSalary();
-		employeeSalary.setEmployeeId(employee.getEmployee());
+		employeeSalary.setEmployeeId(employee.getEmployeeId());
 		employeeSalary.setMainSalary(employee.getSalary());
 		employeeSalary.setCalculatedSalary(employee.getSalary());
 		employeeSalary.setCalculatedIncentive(0f);

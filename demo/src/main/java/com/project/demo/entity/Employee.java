@@ -75,7 +75,7 @@ public class Employee {
 	}
 
 	// Getters and Setters
-	public Integer getEmployee() {
+	public Integer getEmployeeId() {
 		return employeeId;
 	}
 

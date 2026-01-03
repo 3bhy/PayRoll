@@ -42,7 +42,7 @@ public class LoginScheduler {
 			// Call lockLogin function
 			for (Login login : oldUnlockedLogins) {
 			    if (login.getEmployee() != null) {
-			        Integer employeeId = login.getEmployee().getEmployee(); 
+			        Integer employeeId = login.getEmployee().getEmployeeId(); 
 			        loginService.lockLogin(employeeId, oldUnlockedLogins);
 			    }
 			}

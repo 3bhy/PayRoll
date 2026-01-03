@@ -146,6 +146,10 @@ class LoginTest {
 
 		when(shiftTimeAttendanceRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
+		ShiftTimeAttendance newAttendance = new ShiftTimeAttendance();
+		newAttendance.setShiftTimeAttendanceId(1);
+		when(shiftTimeAttendanceRepository.save(any(ShiftTimeAttendance.class))).thenReturn(newAttendance);
+
 		when(loginRepository.save(any(Login.class))).thenReturn(login);
 
 		Login result = loginService.createLoginIfWasActiveLogin(loginModel);

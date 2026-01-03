@@ -66,7 +66,7 @@ class EmployeeShiftControllerTest {
 
 		EmployeeShift result = (EmployeeShift) response.getBody();
 		assertEquals(1, result.getEmployeeShiftId());
-		assertEquals(100, result.getEmployee().getEmployee());
+		assertEquals(100, result.getEmployee().getEmployeeId());
 		assertTrue(result.getActive());
 
 		verify(employeeShiftService, times(1)).createShift(any(EmployeeShiftModel.class));
@@ -128,7 +128,7 @@ class EmployeeShiftControllerTest {
 
 		EmployeeShift result = (EmployeeShift) response.getBody();
 		assertEquals(1, result.getEmployeeShiftId());
-		assertEquals(100, result.getEmployee().getEmployee());
+		assertEquals(100, result.getEmployee().getEmployeeId());
 		assertTrue(result.getActive());
 
 		verify(employeeShiftService, times(1)).getEmployeeShiftById(1);

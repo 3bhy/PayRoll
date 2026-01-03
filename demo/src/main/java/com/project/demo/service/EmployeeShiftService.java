@@ -180,7 +180,7 @@ public class EmployeeShiftService {
 		).stream().findFirst()
 		  .orElseThrow(() -> new IllegalStateException("Selected shift not found"));
 
-		if (!currentShift.getEmployee().getEmployee().equals(shiftModel.getEmployeeId())) {
+		if (!currentShift.getEmployee().getEmployeeId().equals(shiftModel.getEmployeeId())) {
 			throw new IllegalArgumentException("Selected shift does not belong to this employee");
 		}
 

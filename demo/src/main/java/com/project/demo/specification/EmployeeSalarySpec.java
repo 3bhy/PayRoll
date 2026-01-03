@@ -6,7 +6,7 @@ import com.project.demo.entity.EmployeeSalary;
 public class EmployeeSalarySpec {
 	 public static Specification<EmployeeSalary> hasEmployee(Integer employeeId) {
 	        return (root, query, cb) -> employeeId == null ? null
-	                : cb.equal(root.get("employee").get("employeeId"), employeeId);
+	                : cb.equal(root.get("employeeId"), employeeId);
 	    }
 
 	    public static Specification<EmployeeSalary> hasYear(Integer year) {

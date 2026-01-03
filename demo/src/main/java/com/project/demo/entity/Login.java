@@ -27,7 +27,7 @@ public class Login {
 	private Employee employee;
 
 	@ManyToOne
-	@JoinColumn(name = "shiftTimeId")
+	@JoinColumn(name = "shiftTimeId", nullable = true)
 	private ShiftTime shiftTimeId;
 
 	@ManyToOne

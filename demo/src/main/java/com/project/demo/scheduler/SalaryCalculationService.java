@@ -36,12 +36,12 @@ public class SalaryCalculationService {
 		}
 		for (Employee employee : employeesWithoutSalary) {
 			try {
-				employeeSalaryService.calculateEmployeeSalary(employee.getEmployee(), currentYearMonth.getYear(),
+				employeeSalaryService.calculateEmployeeSalary(employee.getEmployeeId(), currentYearMonth.getYear(),
 						currentYearMonth.getMonthValue());
-				employeeSalaryService.lockSalary(employee.getEmployee(), currentYearMonth.getYear(),
+				employeeSalaryService.lockSalary(employee.getEmployeeId(), currentYearMonth.getYear(),
 						currentYearMonth.getMonthValue());
 			} catch (Exception e) {
-				System.err.println("Error calculating salary for employee ID: " + employee.getEmployee());
+				System.err.println("Error calculating salary for employee ID: " + employee.getEmployeeId());
 			}
 		}
 	}

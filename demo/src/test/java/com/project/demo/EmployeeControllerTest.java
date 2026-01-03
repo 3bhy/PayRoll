@@ -60,7 +60,7 @@ class EmployeeControllerTest {
 		assertNotNull(response);
 		assertEquals(HttpStatus.CREATED, response.getStatusCode());
 		assertNotNull(response.getBody());
-		assertEquals(1, ((Employee) response.getBody()).getEmployee());
+		assertEquals(1, ((Employee) response.getBody()).getEmployeeId());
 
 		verify(employeeService, times(1)).createEmployee(any(EmployeeModel.class));
 	}
@@ -103,7 +103,7 @@ class EmployeeControllerTest {
 		assertNotNull(response);
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertNotNull(response.getBody());
-		assertEquals(1, ((Employee) response.getBody()).getEmployee());
+		assertEquals(1, ((Employee) response.getBody()).getEmployeeId());
 
 		verify(employeeService, times(1)).getEmployeeById(1);
 	}
@@ -146,7 +146,7 @@ class EmployeeControllerTest {
 		assertNotNull(response);
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertNotNull(response.getBody());
-		assertEquals(1, ((Employee) response.getBody()).getEmployee());
+		assertEquals(1, ((Employee) response.getBody()).getEmployeeId());
 
 		verify(employeeService, times(1)).updateEmployee(eq(1), any(Employee.class));
 	}
@@ -227,7 +227,7 @@ class EmployeeControllerTest {
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertNotNull(response.getBody());
 		assertEquals(1, response.getBody().size());
-		assertEquals(1, response.getBody().get(0).getEmployee());
+		assertEquals(1, response.getBody().get(0).getEmployeeId());
 
 		verify(employeeService, times(1)).getEmployeesByFilters(1, 2, 3);
 	}

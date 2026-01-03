@@ -167,7 +167,7 @@ class EmployeeTest {
 		Employee result = employeeService.createEmployee(employeeModel);
 
 		assertNotNull(result);
-		assertEquals(1, result.getEmployee());
+		assertEquals(1, result.getEmployeeId());
 		assertEquals(5000.0f, result.getSalary());
 		assertEquals("MONTHLY", result.getSalaryCycle());
 		verify(employeeRepository).saveAndFlush(any(Employee.class));
@@ -306,7 +306,7 @@ class EmployeeTest {
 		Employee result = employeeService.getEmployeeById(1);
 
 		assertNotNull(result);
-		assertEquals(1, result.getEmployee());
+		assertEquals(1, result.getEmployeeId());
 		verify(employeeRepository).findById(1);
 	}
 

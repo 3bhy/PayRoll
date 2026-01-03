@@ -13,7 +13,7 @@ public class ShiftTimeSpec {
         return (root, query, cb) -> {
             if (employeeId == null || date == null) return null;
 
-            var join = root.join("shiftTime").join("employeeShift");
+            var join = root.join("shiftTime").join("employeeShifts");
 
             return cb.and(
                     cb.equal(join.get("employee").get("employeeId"), employeeId),
@@ -29,7 +29,7 @@ public class ShiftTimeSpec {
 	            if (employeeId == null || date == null) return null;
 
 	            var shiftJoin = root.join("shiftId");
-	            var empShiftJoin = shiftJoin.join("employeeShift"); 
+	            var empShiftJoin = shiftJoin.join("employeeShifts"); 
 
 	            return cb.and(
 	                    cb.equal(empShiftJoin.get("employee").get("employeeId"), employeeId), 
@@ -45,7 +45,7 @@ public class ShiftTimeSpec {
 	            if (employeeId == null || date == null || time == null) return null;
 
 	            var shiftJoin = root.join("shiftId");
-	            var empShiftJoin = shiftJoin.join("employeeShift");
+	            var empShiftJoin = shiftJoin.join("employeeShifts");
 
 	            return cb.and(
 	                    cb.equal(empShiftJoin.get("employee").get("employeeId"), employeeId),   
@@ -65,7 +65,7 @@ public class ShiftTimeSpec {
 	            if (employeeId == null) return null;
 
 	            var shiftJoin = root.join("shiftId");
-	            var empShiftJoin = shiftJoin.join("employeeShift");
+	            var empShiftJoin = shiftJoin.join("employeeShifts");
 
 	            return cb.and(
 	                    cb.equal(empShiftJoin.get("employee").get("employeeId"), employeeId),
@@ -79,7 +79,7 @@ public class ShiftTimeSpec {
 	            if (employeeId == null) return null;
 
 	            var shiftJoin = root.join("shiftId");
-	            var empShiftJoin = shiftJoin.join("employeeShift");
+	            var empShiftJoin = shiftJoin.join("employeeShifts");
 
 	            return cb.equal(empShiftJoin.get("employee").get("employeeId"), employeeId);
 	        };
