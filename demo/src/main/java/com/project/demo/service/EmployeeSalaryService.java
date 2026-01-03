@@ -17,9 +17,9 @@ import com.project.demo.entity.ShiftTimeAttendance;
 import com.project.demo.repo.EmployeeRepo;
 import com.project.demo.repo.EmployeeSalaryRepo;
 import com.project.demo.repo.SalesRepo;
-import com.project.demo.repo.ShiftTimeRepo;
 import com.project.demo.repo.shiftTimeAttendanceRepo;
-
+import com.project.demo.specification.EmployeeSalarySpec;
+import com.project.demo.specification.ShiftTimeAttendanceSpec;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -35,8 +35,6 @@ public class EmployeeSalaryService {
 	@Autowired
 	private EmployeeRepo employeeRepo;
 
-	@Autowired
-	private ShiftTimeRepo shiftTimeRepo;
 	@Autowired
 	private shiftTimeAttendanceRepo shiftTimeAttendanceRepository;
 	@Lazy
@@ -71,7 +69,7 @@ public class EmployeeSalaryService {
 
 		Float calculatedIncentive = calculateMonthlyIncentive(employee.getEmployee(), year, month);
 		return createOrUpdateSalary(employee, year, month, mainSalary, calculatedSalary, calculatedIncentive);
-		
+
 	}
 
 	public void updateSalaryOnAttendanceChange(Integer employeeId, LocalDate attendanceDate) {
@@ -99,102 +97,100 @@ public class EmployeeSalaryService {
 	// calculated salary
 	// calculated salary
 	private Float calculateBaseSalary(Employee employee, Integer year, Integer month) {
-	    String salaryCycle = employee.getSalaryCycle();
-	    Float baseSalaryRate = employee.getSalary() != null ? employee.getSalary() : 0.0f;
+		String salaryCycle = employee.getSalaryCycle();
+		Float baseSalaryRate = employee.getSalary() != null ? employee.getSalary() : 0.0f;
 
-	    if (baseSalaryRate <= 0) {
-	        return 0.0f;
-	    }
+		if (baseSalaryRate <= 0) {
+			return 0.0f;
+		}
 
-	    if ("DAY".equals(salaryCycle)) {
-	        // FIXME this calculate the salary according to the shift time regardless his
-	        // attendance !!
-	        // Salary should be calculated according to the attendance
-	        // FIXME DONE logic still needs to be revised, what are those workingDays?
-	        return calculateDailySalary(employee, year, month, baseSalaryRate);
+		if ("DAY".equals(salaryCycle)) {
+			// FIXME this calculate the salary according to the shift time regardless his
+			// attendance !!
+			// Salary should be calculated according to the attendance
+			// FIXME DONE logic still needs to be revised, what are those workingDays?
+			return calculateDailySalary(employee, year, month, baseSalaryRate);
 
-	    } else if ("HOUR".equals(salaryCycle)) {
-	        return calculateHourlySalary(employee, year, month, baseSalaryRate);
-	        
-	    } else if (("MONTH".equals(salaryCycle))) {
-	        return calculateMonthlySalary(employee, year, month, baseSalaryRate);
-	    } else {
-	        // Invalid salary cycle
-	        throw new IllegalArgumentException(
-	                "Invalid salary cycle '" + salaryCycle + "' for employee " + employee.getEmployee());
-	    }
+		} else if ("HOUR".equals(salaryCycle)) {
+			return calculateHourlySalary(employee, year, month, baseSalaryRate);
+
+		} else if (("MONTH".equals(salaryCycle))) {
+			return calculateMonthlySalary(employee, year, month, baseSalaryRate);
+		} else {
+			// Invalid salary cycle
+			throw new IllegalArgumentException(
+					"Invalid salary cycle '" + salaryCycle + "' for employee " + employee.getEmployee());
+		}
 	}
 
 	private Float calculateDailySalary(Employee employee, Integer year, Integer month, Float dailyRate) {
-	    try {
-	        Integer employeeId = employee.getEmployee();
-	        
-	        Integer actualAttendanceDays = calculateAttendanceDays(employeeId, year, month);
-	        
-	        return actualAttendanceDays * dailyRate;
-	        
-	    } catch (Exception e) {
-	        System.err.println("Error calculating daily salary: " + e.getMessage());
-	        return 0.0f;
-	    }
+		try {
+			Integer employeeId = employee.getEmployee();
+
+			Integer actualAttendanceDays = calculateAttendanceDays(employeeId, year, month);
+
+			return actualAttendanceDays * dailyRate;
+
+		} catch (Exception e) {
+			System.err.println("Error calculating daily salary: " + e.getMessage());
+			return 0.0f;
+		}
 	}
 
 	private Integer calculateAttendanceDays(Integer employeeId, Integer year, Integer month) {
-	    try {
-	        List<ShiftTimeAttendance> monthlyAttendances = 
-	                shiftTimeAttendanceRepository.findByEmployeeAndMonth(employeeId, year, month);
-	        
-	        if (monthlyAttendances == null || monthlyAttendances.isEmpty()) {
-	            return 0;
-	        }
-	        
-	        return monthlyAttendances.size();
-	        
-	    } catch (Exception e) {
-	        System.err.println("Error calculating attendance days: " + e.getMessage());
-	        return 0;
-	    }
+		try {
+			List<ShiftTimeAttendance> monthlyAttendances = shiftTimeAttendanceRepository
+					.findAll(ShiftTimeAttendanceSpec.byEmployeeAndMonth(employeeId, year, month));
+
+			if (monthlyAttendances == null || monthlyAttendances.isEmpty()) {
+				return 0;
+			}
+
+			return monthlyAttendances.size();
+
+		} catch (Exception e) {
+			System.err.println("Error calculating attendance days: " + e.getMessage());
+			return 0;
+		}
 	}
 
 	private Float calculateHourlySalary(Employee employee, Integer year, Integer month, Float hourlyRate) {
-	    try {
-	        Integer employeeId = employee.getEmployee();
-	        
-	        Float totalActualHours = getTotalActivityTime(employeeId, year, month);
-	        
-	        return totalActualHours * hourlyRate;
-	        
-	    } catch (Exception e) {
-	        System.err.println("Error calculating hourly salary: " + e.getMessage());
-	        return 0.0f;
-	    }
+		try {
+			Integer employeeId = employee.getEmployee();
+
+			Float totalActualHours = getTotalActivityTime(employeeId, year, month);
+
+			return totalActualHours * hourlyRate;
+
+		} catch (Exception e) {
+			System.err.println("Error calculating hourly salary: " + e.getMessage());
+			return 0.0f;
+		}
 	}
 
 	private Float calculateMonthlySalary(Employee employee, Integer year, Integer month, Float monthlySalary) {
-	    return employee.getSalary() != null ? employee.getSalary() : 0.0f;
+		return employee.getSalary() != null ? employee.getSalary() : 0.0f;
 	}
 
 	private Float getTotalActivityTime(Integer employeeId, Integer year, Integer month) {
-	    String totalTimeStr = shiftTimeAttendanceRepository.findTotalActivityTimeByEmployeeAndMonth(employeeId, year, month);
+		String totalTimeStr = shiftTimeAttendanceRepository.findTotalActivityTimeByEmployeeAndMonth(employeeId, year,
+				month);
 
-	    if (totalTimeStr == null || totalTimeStr.isEmpty()) {
-	        return 0f;
-	    }
+		if (totalTimeStr == null || totalTimeStr.isEmpty()) {
+			return 0f;
+		}
 
-	    LocalTime time = LocalTime.parse(totalTimeStr);
-	    Duration duration = Duration.ofSeconds(
-	        time.toSecondOfDay()
-	    );
+		LocalTime time = LocalTime.parse(totalTimeStr);
+		Duration duration = Duration.ofSeconds(time.toSecondOfDay());
 
-	    return duration.toMinutes() / 60f;
+		return duration.toMinutes() / 60f;
 	}
-
-	
 
 	private EmployeeSalary createOrUpdateSalary(Employee employee, Integer year, Integer month, Float mainSalary,
 			Float calculatedSalary, Float calculatedIncentive) {
 		Optional<EmployeeSalary> existingSalary = employeeSalaryRepo
-				.findByEmployeeIdAndYearAndMonth(employee.getEmployee(), year, month);
+				.findOne(EmployeeSalarySpec.hasEmployee(employee.getEmployee()).and(EmployeeSalarySpec.hasYear(year))
+						.and(EmployeeSalarySpec.hasMonth(month)));
 
 		EmployeeSalary salary;
 		if (existingSalary.isPresent()) {
@@ -235,7 +231,7 @@ public class EmployeeSalaryService {
 
 		Float finalAmount = mainSalary + reward + incentive - discount;
 		employeeSalary.setFinalSalary(finalAmount);
-		
+
 		if (employeeSalary.getSalaryAmountPaid() != null && employeeSalary.getFinalSalary() != null) {
 			Float paymentDifference = employeeSalary.getFinalSalary() - employeeSalary.getSalaryAmountPaid();
 			employeeSalary.setSalaryDifference(paymentDifference);
@@ -252,17 +248,15 @@ public class EmployeeSalaryService {
 		Float calculatedDiscount = employeeSalary.getCalculatedDiscount() != null
 				? employeeSalary.getCalculatedDiscount()
 				: 0f;
-		//new update
+		// new update
 		Float credit = employeeSaleRepo.calculateEmployeeCredit(employeeSalary.getEmployee());
-	    if (credit == null) credit = 0f;
+		if (credit == null)
+			credit = 0f;
 
 		Float calculatedFinalSalary = calculatedSalary + calculatedIncentive - calculatedDiscount - credit;
 		employeeSalary.setCalculatedFinalSalary(calculatedFinalSalary);
 
-		
-
 	}
-	
 
 	// add discount from user
 	public EmployeeSalary addSalaryDiscount(Integer employeeId, Integer year, Integer month, Float amount,
@@ -336,8 +330,8 @@ public class EmployeeSalaryService {
 
 	// get employee salary
 	private EmployeeSalary getOrCreateEmployeeSalary(Integer employeeId, Integer year, Integer month) {
-		Optional<EmployeeSalary> existingSalary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year,
-				month);
+		Optional<EmployeeSalary> existingSalary = employeeSalaryRepo.findOne(EmployeeSalarySpec.hasEmployee(employeeId)
+				.and(EmployeeSalarySpec.hasYear(year)).and(EmployeeSalarySpec.hasMonth(month)));
 
 		if (existingSalary.isPresent()) {
 			return existingSalary.get();
@@ -371,7 +365,9 @@ public class EmployeeSalaryService {
 
 	// pay salary
 	public EmployeeSalary paySalaryDirect(Integer employeeId, Integer year, Integer month, Float amountPaid) {
-		EmployeeSalary salary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)
+		EmployeeSalary salary = employeeSalaryRepo
+				.findOne(EmployeeSalarySpec.hasEmployee(employeeId).and(EmployeeSalarySpec.hasYear(year))
+						.and(EmployeeSalarySpec.hasMonth(month)))
 				.orElseThrow(() -> new EntityNotFoundException("Salary record not found for employee: " + employeeId
 						+ ", year: " + year + ", month: " + month));
 
@@ -389,7 +385,8 @@ public class EmployeeSalaryService {
 	}
 
 	public Optional<EmployeeSalary> getEmployeeSalary(Integer employeeId, Integer year, Integer month) {
-		return employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month);
+		return employeeSalaryRepo.findOne(EmployeeSalarySpec.hasEmployee(employeeId)
+				.and(EmployeeSalarySpec.hasYear(year)).and(EmployeeSalarySpec.hasMonth(month)));
 	}
 
 	// update main salary
@@ -404,8 +401,8 @@ public class EmployeeSalaryService {
 			throw new IllegalArgumentException("Base salary cannot be negative");
 		}
 
-		EmployeeSalary employeeSalary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)
-				.orElseGet(() -> {
+		EmployeeSalary employeeSalary = employeeSalaryRepo.findOne(EmployeeSalarySpec.hasEmployee(employeeId)
+				.and(EmployeeSalarySpec.hasYear(year)).and(EmployeeSalarySpec.hasMonth(month))).orElseGet(() -> {
 					EmployeeSalary newSalary = new EmployeeSalary();
 					newSalary.setEmployeeId(employeeId);
 					newSalary.setYear(year);
@@ -422,7 +419,9 @@ public class EmployeeSalaryService {
 
 	// lock salary
 	public EmployeeSalary lockSalary(Integer employeeId, Integer year, Integer month) {
-		EmployeeSalary employeeSalary = employeeSalaryRepo.findByEmployeeIdAndYearAndMonth(employeeId, year, month)
+		EmployeeSalary employeeSalary = employeeSalaryRepo
+				.findOne(EmployeeSalarySpec.hasEmployee(employeeId).and(EmployeeSalarySpec.hasYear(year))
+						.and(EmployeeSalarySpec.hasMonth(month)))
 				.orElseThrow(() -> new RuntimeException("Salary not found"));
 
 		employeeSalary.setSalaryLocked(true);

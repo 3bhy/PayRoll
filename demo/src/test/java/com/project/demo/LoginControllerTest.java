@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -454,64 +455,65 @@ class LoginControllerTest {
 
 	// ============ LOGOUT BY EMPLOYEE ID TESTS ============
 
-	@Test
-	void testLogoutByEmployeeId_Success() {
-		List<Login> activeLogins = Collections.singletonList(login);
-		when(loginRepository.findActiveLogins(100)).thenReturn(activeLogins);
-		when(loginService.processLogout(eq(100), eq(1))).thenReturn(login);
+	 @Test
+	    void testLogoutByEmployeeId_Success() {
+	        List<Login> activeLogins = Collections.singletonList(login);
+	        when(loginRepository.findAll(any(Specification.class))).thenReturn(activeLogins);
+	        when(loginService.processLogout(eq(100), eq(1))).thenReturn(login);
 
-		ResponseEntity<?> response = loginController.logoutByEmployeeId(100);
+	        ResponseEntity<?> response = loginController.logoutByEmployeeId(100);
 
-		assertNotNull(response);
-		assertEquals(HttpStatus.OK, response.getStatusCode());
-		assertTrue(response.getBody() instanceof Login);
+	        assertNotNull(response);
+	        assertEquals(HttpStatus.OK, response.getStatusCode());
+	        assertTrue(response.getBody() instanceof Login);
 
-		Login result = (Login) response.getBody();
-		assertNotNull(result);
-		assertEquals(1, result.getLoginId());
+	        Login result = (Login) response.getBody();
+	        assertNotNull(result);
+	        assertEquals(1, result.getLoginId());
 
-		verify(loginRepository, times(1)).findActiveLogins(100);
-		verify(loginService, times(1)).processLogout(eq(100), eq(1));
-	}
+	        verify(loginRepository, times(1)).findAll(any(Specification.class));
+	        verify(loginService, times(1)).processLogout(eq(100), eq(1));
+	    }
 
-	@Test
-	void testLogoutByEmployeeId_NoActiveLogin() {
-		when(loginRepository.findActiveLogins(999)).thenReturn(Collections.emptyList());
+	    @Test
+	    void testLogoutByEmployeeId_NoActiveLogin() {
+	        when(loginRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
-		ResponseEntity<?> response = loginController.logoutByEmployeeId(999);
+	        ResponseEntity<?> response = loginController.logoutByEmployeeId(999);
 
-		assertNotNull(response);
-		assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-		assertTrue(response.getBody() instanceof Map);
+	        assertNotNull(response);
+	        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+	        assertTrue(response.getBody() instanceof Map);
 
-		@SuppressWarnings("unchecked")
-		Map<String, String> body = (Map<String, String>) response.getBody();
-		assertTrue(body.get("message").contains("No active login found"));
+	        @SuppressWarnings("unchecked")
+	        Map<String, String> body = (Map<String, String>) response.getBody();
+	        assertTrue(body.get("message").contains("No active login found"));
 
-		verify(loginRepository, times(1)).findActiveLogins(999);
-		verify(loginService, never()).processLogout(anyInt(), anyInt());
-	}
+	        verify(loginRepository, times(1)).findAll(any(Specification.class));
+	        verify(loginService, never()).processLogout(anyInt(), anyInt());
+	    }
 
-	@Test
-	void testLogoutByEmployeeId_NullAttendance() {
-		login.setShiftTimeAttendanceId(null);
-		List<Login> activeLogins = Collections.singletonList(login);
+	    @Test
+	    void testLogoutByEmployeeId_NullAttendance() {
+	        login.setShiftTimeAttendanceId(null);
+	        List<Login> activeLogins = Collections.singletonList(login);
 
-		when(loginRepository.findActiveLogins(100)).thenReturn(activeLogins);
-		when(loginService.processLogout(eq(100), isNull())).thenReturn(login);
+	        when(loginRepository.findAll(any(Specification.class))).thenReturn(activeLogins);
+	        when(loginService.processLogout(eq(100), isNull())).thenReturn(login);
 
-		ResponseEntity<?> response = loginController.logoutByEmployeeId(100);
+	        ResponseEntity<?> response = loginController.logoutByEmployeeId(100);
 
-		assertNotNull(response);
-		assertEquals(HttpStatus.OK, response.getStatusCode());
-		assertTrue(response.getBody() instanceof Login);
+	        assertNotNull(response);
+	        assertEquals(HttpStatus.OK, response.getStatusCode());
+	        assertTrue(response.getBody() instanceof Login);
 
-		Login result = (Login) response.getBody();
-		assertNotNull(result);
+	        Login result = (Login) response.getBody();
+	        assertNotNull(result);
 
-		verify(loginRepository, times(1)).findActiveLogins(100);
-		verify(loginService, times(1)).processLogout(eq(100), isNull());
-	}
+	        verify(loginRepository, times(1)).findAll(any(Specification.class));
+	        verify(loginService, times(1)).processLogout(eq(100), isNull());
+	    }
+	
 
 	// ============ GET ACTIVE LOGIN TESTS ============
 

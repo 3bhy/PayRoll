@@ -1,6 +1,7 @@
 package com.project.demo.service;
 
 import java.sql.Time;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import com.project.demo.entity.Company;
@@ -26,6 +28,9 @@ import com.project.demo.repo.EmployeeRepo;
 import com.project.demo.repo.LoginRepo;
 import com.project.demo.repo.ShiftTimeRepo;
 import com.project.demo.repo.shiftTimeAttendanceRepo;
+import com.project.demo.specification.LoginSpec;
+import com.project.demo.specification.ShiftTimeAttendanceSpec;
+import com.project.demo.specification.ShiftTimeSpec;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -53,7 +58,9 @@ public class LoginService {
 
 	// Login Process if there active login close it and open new
 	private Login processLogin(Integer employeeId, Integer shiftTimeAttendanceId) {
-		List<Login> activeLogins = loginRepository.findActiveLogins(employeeId);
+		List<Login> activeLogins = loginRepository.findAll(
+			    LoginSpec.activeLoginsForEmployee(employeeId)
+			);
 		if (!activeLogins.isEmpty()) {
 			lockLogin(employeeId, activeLogins);
 		}
@@ -77,6 +84,7 @@ public class LoginService {
 	public List<Login> lockLogin(Integer employeeId, List<Login> activeLogins) {
 	    if (employeeId == null) {
 	    	//XXX you already call the method with null at some places
+	    	//FIXME-DONE
 	        throw new IllegalArgumentException("Employee ID is required");
 	    }
 	    
@@ -140,7 +148,9 @@ public class LoginService {
 
 		try {
 
-			List<Login> activeLogins = loginRepository.findActiveLogins(employeeId);
+			List<Login> activeLogins = loginRepository.findAll(
+				    LoginSpec.activeLoginsForEmployee(employeeId)
+				);
 
 			if (activeLogins.isEmpty()) {
 
@@ -182,10 +192,12 @@ public class LoginService {
 		} else {
 			System.out.println("No shift found for employee: " + employeeId);
 		}
-		CreateNewAttendance(employeeId);
-		ShiftTimeAttendance shiftTimeAttendance = shiftTimeAttendanceService
-				.getShiftTimeAttendance(shiftTimeAttendanceId);
-		login.setShiftTimeAttendanceId(shiftTimeAttendance);
+		ShiftTimeAttendance attendance = shiftTimeAttendanceRepository.findAll(
+		        ShiftTimeAttendanceSpec.todayByEmployee(employeeId)
+		).stream().findFirst().orElseGet(() -> CreateNewAttendance(employeeId));
+
+
+		    login.setShiftTimeAttendanceId(attendance);
 		Login savedLogin = loginRepository.save(login);
 
 		return savedLogin;
@@ -240,14 +252,24 @@ public class LoginService {
 			logoutEnd = logoutDateTime.withNano(0);
 		}
 
-		return loginRepository.findLoginsByFilters(employeeId, loginStart, loginEnd, logoutStart, logoutEnd,
-				logoutStatus, locked);
+		Specification<Login> spec = LoginSpec.hasEmployee(employeeId)
+		        .and(LoginSpec.loginAfter(loginStart))
+		        .and(LoginSpec.loginBefore(loginEnd))
+		        .and(LoginSpec.logoutAfter(logoutStart))
+		        .and(LoginSpec.logoutBefore(logoutEnd))
+		        .and(LoginSpec.hasLogoutStatus(logoutStatus))
+		        .and(LoginSpec.isLocked(locked));
+
+		return loginRepository.findAll(spec);
+
 	}
 
 	// Logout by employeeId
 
 	public Login processLogout(Integer employeeId, Integer shiftTimeAttendanceId) {
-		List<Login> activeLogins = loginRepository.findActiveLogins(employeeId);
+		List<Login> activeLogins = loginRepository.findAll(
+			    LoginSpec.activeLoginsForEmployee(employeeId)
+			);
 
 		if (activeLogins.isEmpty()) {
 			return processLogin(employeeId, shiftTimeAttendanceId);
@@ -268,16 +290,24 @@ public class LoginService {
 
 	// Logout employee by loginID
 	public Login logoutByLoginId(Integer loginId) {
-		Login login = loginRepository.findActiveLoginById(loginId)
-				.orElseThrow(() -> new EntityNotFoundException("Active login not found with id: " + loginId));
-		return processLogout(login.getEmployee().getEmployee(),
-				login.getShiftTimeAttendanceId().getShiftTimeAttendanceId());
+	    Login login = loginRepository.findAll(LoginSpec.activeLoginById(loginId))
+	            .stream()
+	            .findFirst()
+	            .orElseThrow(() -> new EntityNotFoundException(
+	                "Active login not found with id: " + loginId
+	            ));
+
+	    return processLogout(
+	            login.getEmployee().getEmployee(),
+	            login.getShiftTimeAttendanceId().getShiftTimeAttendanceId()
+	    );
 	}
 
 	// getOpenLogins
 	public List<Login> getOpenLogins() {
-		return loginRepository.findLockedLoginsWithOpenLogout();
+	    return loginRepository.findAll(LoginSpec.lockedWithOpenLogout());
 	}
+
 
 	// This is updates
 
@@ -285,9 +315,14 @@ public class LoginService {
 	// and to hour and same day
 
 	public ShiftTime getCurrentShiftTimeForEmployee(Integer employeeId) {
-		Optional<ShiftTime> shiftTimeOpt = shiftTimeRepo.findCurrentShiftTimeForEmployee(employeeId);
+	    LocalDate today = LocalDate.now();
+	    LocalTime now = LocalTime.now();
 
-		return shiftTimeOpt.orElseGet(this::createDummyShiftTime);
+	    Specification<ShiftTime> spec = ShiftTimeSpec.currentShiftForEmployee(employeeId, today, now);
+
+	    List<ShiftTime> shifts = shiftTimeRepo.findAll(spec);
+
+	    return shifts.isEmpty() ? createDummyShiftTime() : shifts.get(0);
 	}
 
 	// DummyShift
@@ -315,12 +350,20 @@ public class LoginService {
 
 //get active login and now is between totime and fromtime
 	public Optional<Login> findActiveLoginWithinShift(Integer employeeId) {
-		return loginRepository.findActiveLoginWithinShift(employeeId);
+	    LocalTime now = LocalTime.now();
+	    DayOfWeek today = LocalDate.now().getDayOfWeek();
+
+	    return loginRepository.findAll(
+	            LoginSpec.activeLoginWithinShift(employeeId, now, today)
+	    ).stream().findFirst();
 	}
 
 	// get shift_time_attendance
 	public ShiftTimeAttendance getTodayAttendance(Integer employeeId) {
-		Optional<ShiftTimeAttendance> attendance = loginRepository.findTodayAttendanceByEmployee(employeeId);
+		Optional<ShiftTimeAttendance> attendance =
+			    shiftTimeAttendanceRepository.findAll(
+			        ShiftTimeAttendanceSpec.todayByEmployee(employeeId)
+			    ).stream().findFirst();
 
 		if (attendance.isPresent()) {
 			return attendance.get();

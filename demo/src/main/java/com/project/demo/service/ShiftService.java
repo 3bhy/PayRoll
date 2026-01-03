@@ -10,6 +10,8 @@ import com.project.demo.model.ShiftModel;
 import com.project.demo.model.ShiftTimeModel;
 import com.project.demo.repo.CompanyRepo;
 import com.project.demo.repo.ShiftRepo;
+import com.project.demo.specification.ShiftSpec;
+
 import jakarta.persistence.EntityNotFoundException;
 
 @Service
@@ -69,7 +71,7 @@ public class ShiftService {
 	public List<Shift> getShiftsByCompanyId(Integer companyId) {
 		List<Shift> shifts;
 		if (companyId != null) {
-			shifts = shiftRepository.findByCompanyCompanyId(companyId);
+			shifts = shiftRepository.findAll(ShiftSpec.byCompanyId(companyId));
 		} else {
 			shifts = shiftRepository.findAll();
 		}

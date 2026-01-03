@@ -16,9 +16,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.sql.Time;
-
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
@@ -103,15 +103,21 @@ class LoginTest {
 		loginModel = new LoginModel();
 		loginModel.setEmployeeId(1);
 		loginModel.setShiftTimeAttendanceId(1);
+
+		lenient().when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+		lenient().when(employeeService.getEmployeeById(1)).thenReturn(employee);
 	}
 
 	// ==================== createLoginIfWasActiveLogin Tests ====================
 
 	@Test
 	void testCreateLoginIfWasActiveLogin() {
-		when(loginRepository.findActiveLogins(1)).thenReturn(Collections.emptyList());
-		when(employeeService.getEmployeeById(1)).thenReturn(employee);
-		when(shiftTimeAttendanceService.getShiftTimeAttendance(1)).thenReturn(shiftTimeAttendance);
+		when(shiftTimeAttendanceService.findNearestShiftTimeForEmployee(anyInt(), any(LocalDateTime.class)))
+				.thenReturn(shiftTime);
+
+		when(shiftTimeAttendanceRepository.findAll(any(Specification.class)))
+				.thenReturn(Collections.singletonList(shiftTimeAttendance));
+
 		when(loginRepository.save(any(Login.class))).thenReturn(login);
 
 		Login result = loginService.createLoginIfWasActiveLogin(loginModel);
@@ -135,24 +141,23 @@ class LoginTest {
 	void testCreateLoginIfWasActiveLogin_WithNullShiftTimeAttendanceId() {
 		loginModel.setShiftTimeAttendanceId(null);
 
-		when(loginRepository.findActiveLogins(1)).thenReturn(Collections.emptyList());
-		when(employeeService.getEmployeeById(1)).thenReturn(employee);
-		when(shiftTimeAttendanceService.getShiftTimeAttendance(null))
-				.thenThrow(new RuntimeException("Shift time attendance ID cannot be null"));
+		when(shiftTimeAttendanceService.findNearestShiftTimeForEmployee(anyInt(), any(LocalDateTime.class)))
+				.thenReturn(null);
 
-		RuntimeException exception = assertThrows(RuntimeException.class,
-				() -> loginService.createLoginIfWasActiveLogin(loginModel));
+		when(shiftTimeAttendanceRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
-		assertTrue(exception.getMessage().contains("cannot be null"));
-		verify(loginRepository, never()).save(any(Login.class));
+		when(loginRepository.save(any(Login.class))).thenReturn(login);
 
+		Login result = loginService.createLoginIfWasActiveLogin(loginModel);
+
+		assertNotNull(result);
+		verify(loginRepository).save(any(Login.class));
 	}
 
 	// ==================== lockLogin Tests ====================
 
 	@Test
 	void testLockLogin() {
-
 		Employee employee = new Employee();
 		employee.setEmployeeId(1);
 
@@ -160,7 +165,7 @@ class LoginTest {
 		activeLogin.setLoginId(1);
 		activeLogin.setLoginDateTime(loginTime);
 		activeLogin.setLogoutDateTime(logoutTime);
-		activeLogin.setEmployee(employee); 
+		activeLogin.setEmployee(employee);
 		activeLogin.setLocked(false);
 
 		List<Login> activeLogins = Arrays.asList(activeLogin);
@@ -173,7 +178,6 @@ class LoginTest {
 		assertTrue(activeLogin.getLocked());
 		verify(loginRepository).save(activeLogin);
 	}
-
 
 	@Test
 	void testLockLogin_EmptyList() {
@@ -186,15 +190,14 @@ class LoginTest {
 
 	@Test
 	void testLockLogin_WithNullLogoutDateTime() {
-
 		Employee employee = new Employee();
 		employee.setEmployeeId(1);
 
 		Login activeLogin = new Login();
 		activeLogin.setLoginId(1);
 		activeLogin.setLoginDateTime(loginTime);
-		activeLogin.setLogoutDateTime(null); 
-		activeLogin.setEmployee(employee);  
+		activeLogin.setLogoutDateTime(null);
+		activeLogin.setEmployee(employee);
 		activeLogin.setLocked(false);
 
 		List<Login> activeLogins = Arrays.asList(activeLogin);
@@ -207,7 +210,6 @@ class LoginTest {
 		assertTrue(activeLogin.getLocked());
 		verify(loginRepository).save(activeLogin);
 	}
-
 
 	// ==================== calculateAndSetActivityTime Tests ====================
 
@@ -279,23 +281,23 @@ class LoginTest {
 		activeLogin.setLoginId(1);
 		activeLogin.setLocked(false);
 
-		when(loginRepository.findActiveLogins(1)).thenReturn(Arrays.asList(activeLogin));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(activeLogin));
 		when(loginRepository.save(any(Login.class))).thenReturn(activeLogin);
 
 		loginService.lockLoginByEmployeeId(1);
 
 		assertTrue(activeLogin.getLocked());
-		verify(loginRepository).findActiveLogins(1);
+		verify(loginRepository).findAll(any(Specification.class));
 		verify(loginRepository).save(activeLogin);
 	}
 
 	@Test
 	void testLockLoginByEmployeeId_NoActiveLogins() {
-		when(loginRepository.findActiveLogins(1)).thenReturn(Collections.emptyList());
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
 		loginService.lockLoginByEmployeeId(1);
 
-		verify(loginRepository).findActiveLogins(1);
+		verify(loginRepository).findAll(any(Specification.class));
 		verify(loginRepository, never()).save(any(Login.class));
 	}
 
@@ -309,7 +311,7 @@ class LoginTest {
 		login2.setLoginId(2);
 		login2.setLocked(false);
 
-		when(loginRepository.findActiveLogins(1)).thenReturn(Arrays.asList(login1, login2));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login1, login2));
 		when(loginRepository.save(any(Login.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		loginService.lockLoginByEmployeeId(1);
@@ -317,6 +319,7 @@ class LoginTest {
 		assertTrue(login1.getLocked());
 		assertTrue(login2.getLocked());
 		verify(loginRepository, times(2)).save(any(Login.class));
+		verify(loginRepository, times(1)).findAll(any(Specification.class));
 	}
 
 	// ==================== getLoginById Tests ====================
@@ -379,38 +382,35 @@ class LoginTest {
 
 	@Test
 	void testGetLoginsByFilters_EmployeeIdOnly() {
-		when(loginRepository.findLoginsByFilters(eq(1), any(), any(), any(), any(), any(), any()))
-				.thenReturn(Arrays.asList(login));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
 
 		List<Login> result = loginService.getLoginsByFilters(1, null, null, null, null);
 
 		assertNotNull(result);
 		assertEquals(1, result.size());
-		verify(loginRepository).findLoginsByFilters(eq(1), any(), any(), any(), any(), any(), any());
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testGetLoginsByFilters_LoginDateTimeOnly() {
-		when(loginRepository.findLoginsByFilters(any(), eq(now.withNano(0)), isNull(), any(), any(), any(), any()))
-				.thenReturn(Arrays.asList(login));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
 
 		List<Login> result = loginService.getLoginsByFilters(null, now, null, null, null);
 
 		assertNotNull(result);
 		assertEquals(1, result.size());
-		verify(loginRepository).findLoginsByFilters(any(), eq(now.withNano(0)), isNull(), any(), any(), any(), any());
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testGetLoginsByFilters_LogoutDateTimeOnly() {
-		when(loginRepository.findLoginsByFilters(any(), any(), any(), isNull(), eq(now.withNano(0)), any(), any()))
-				.thenReturn(Arrays.asList(login));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
 
 		List<Login> result = loginService.getLoginsByFilters(null, null, now, null, null);
 
 		assertNotNull(result);
 		assertEquals(1, result.size());
-		verify(loginRepository).findLoginsByFilters(any(), any(), any(), isNull(), eq(now.withNano(0)), any(), any());
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	@Test
@@ -418,79 +418,99 @@ class LoginTest {
 		LocalDateTime start = now.minusHours(5);
 		LocalDateTime end = now.minusHours(1);
 
-		when(loginRepository.findLoginsByFilters(any(), eq(start.withNano(0)), eq(end.withNano(0)),
-				eq(start.withNano(0)), eq(end.withNano(0)), any(), any())).thenReturn(Arrays.asList(login));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
 
 		List<Login> result = loginService.getLoginsByFilters(null, start, end, null, null);
 
 		assertNotNull(result);
 		assertEquals(1, result.size());
-		verify(loginRepository).findLoginsByFilters(any(), eq(start.withNano(0)), eq(end.withNano(0)),
-				eq(start.withNano(0)), eq(end.withNano(0)), any(), any());
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testGetLoginsByFilters_LogoutStatusTrue() {
-		when(loginRepository.findLoginsByFilters(any(), any(), any(), any(), any(), eq(true), any()))
-				.thenReturn(Arrays.asList(login));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
 
 		List<Login> result = loginService.getLoginsByFilters(null, null, null, true, null);
 
 		assertNotNull(result);
 		assertEquals(1, result.size());
-		verify(loginRepository).findLoginsByFilters(any(), any(), any(), any(), any(), eq(true), any());
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testGetLoginsByFilters_LockedFalse() {
-		when(loginRepository.findLoginsByFilters(any(), any(), any(), any(), any(), any(), eq(false)))
-				.thenReturn(Arrays.asList(login));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
 
 		List<Login> result = loginService.getLoginsByFilters(null, null, null, null, false);
 
 		assertNotNull(result);
 		assertEquals(1, result.size());
-		verify(loginRepository).findLoginsByFilters(any(), any(), any(), any(), any(), any(), eq(false));
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testGetLoginsByFilters_AllFilters() {
-		when(loginRepository.findLoginsByFilters(eq(1), eq(now.withNano(0)), eq(now.withNano(0)), eq(now.withNano(0)),
-				eq(now.withNano(0)), eq(true), eq(false))).thenReturn(Arrays.asList(login));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
 
 		List<Login> result = loginService.getLoginsByFilters(1, now, now, true, false);
 
 		assertNotNull(result);
 		assertEquals(1, result.size());
-		verify(loginRepository).findLoginsByFilters(eq(1), eq(now.withNano(0)), eq(now.withNano(0)),
-				eq(now.withNano(0)), eq(now.withNano(0)), eq(true), eq(false));
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testGetLoginsByFilters_NoResults() {
-		when(loginRepository.findLoginsByFilters(any(), any(), any(), any(), any(), any(), any()))
-				.thenReturn(Collections.emptyList());
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
 		List<Login> result = loginService.getLoginsByFilters(999, now, now, true, false);
 
 		assertNotNull(result);
 		assertTrue(result.isEmpty());
-		verify(loginRepository).findLoginsByFilters(eq(999), any(), any(), any(), any(), any(), any());
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	// ==================== processLogout Tests ====================
 
 	@Test
-	void testProcessLogout_NoActiveLogin_CreatesNew() {
-		lenient().when(loginRepository.findActiveLogins(1)).thenReturn(Collections.emptyList());
-		lenient().when(employeeService.getEmployeeById(1)).thenReturn(employee);
-		lenient().when(shiftTimeAttendanceService.getShiftTimeAttendance(1)).thenReturn(shiftTimeAttendance);
-		lenient().when(shiftTimeRepo.findByEmployeeIdNative(1)).thenReturn(Arrays.asList(shiftTime));
-		lenient().when(loginRepository.save(any(Login.class))).thenReturn(login);
+	void testProcessLogout_NoActiveLogin_CreatesNew_WithSpec() {
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
+
+		when(shiftTimeAttendanceService.findNearestShiftTimeForEmployee(anyInt(), any(LocalDateTime.class)))
+				.thenReturn(shiftTime);
+
+		when(shiftTimeAttendanceRepository.findAll(any(Specification.class)))
+				.thenReturn(Collections.singletonList(shiftTimeAttendance));
+
+		when(loginRepository.save(any(Login.class))).thenReturn(login);
+
 		Login result = loginService.processLogout(1, 1);
 
 		assertNotNull(result);
 		verify(loginRepository).save(any(Login.class));
+		verify(loginRepository, atLeastOnce()).findAll(any(Specification.class));
+
+	}
+
+	@Test
+	void testProcessLogout_WithActiveLogin() {
+		Login activeLogin = new Login();
+		activeLogin.setLoginId(1);
+		activeLogin.setEmployee(employee);
+		activeLogin.setLogoutStatus(false);
+		activeLogin.setShiftTimeAttendanceId(shiftTimeAttendance);
+
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(activeLogin));
+
+		when(loginRepository.save(any(Login.class))).thenReturn(activeLogin);
+
+		Login result = loginService.processLogout(1, 1);
+
+		assertNotNull(result);
+		assertTrue(result.getLogoutStatus());
+		verify(loginRepository, atLeastOnce()).findAll(any(Specification.class));
+		verify(loginRepository, times(2)).save(any(Login.class));
 	}
 
 	// ==================== logoutByLoginId Tests ====================
@@ -503,146 +523,139 @@ class LoginTest {
 		activeLogin.setShiftTimeAttendanceId(shiftTimeAttendance);
 		activeLogin.setLogoutStatus(false);
 
-		when(loginRepository.findActiveLoginById(1)).thenReturn(Optional.of(activeLogin));
-		when(loginRepository.findActiveLogins(1)).thenReturn(Arrays.asList(activeLogin));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(activeLogin));
+
 		when(loginRepository.save(any(Login.class))).thenReturn(activeLogin);
 
 		Login result = loginService.logoutByLoginId(1);
 
 		assertNotNull(result);
 		assertTrue(result.getLogoutStatus());
-		verify(loginRepository).findActiveLoginById(1);
+		verify(loginRepository, atLeastOnce()).findAll(any(Specification.class));
+		verify(loginRepository, times(2)).save(any(Login.class));
 	}
 
 	@Test
 	void testLogoutByLoginId_NotFound() {
-		when(loginRepository.findActiveLoginById(999)).thenReturn(Optional.empty());
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
 		EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
 				() -> loginService.logoutByLoginId(999));
 
 		assertEquals("Active login not found with id: 999", exception.getMessage());
-		verify(loginRepository).findActiveLoginById(999);
+		verify(loginRepository).findAll(any(Specification.class));
+		verify(loginRepository, never()).save(any(Login.class));
 	}
 
 	// ==================== getOpenLogins Tests ====================
 
 	@Test
 	void testGetOpenLogins() {
-		when(loginRepository.findLockedLoginsWithOpenLogout()).thenReturn(Arrays.asList(login));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
 
 		List<Login> result = loginService.getOpenLogins();
 
 		assertNotNull(result);
 		assertEquals(1, result.size());
-		verify(loginRepository).findLockedLoginsWithOpenLogout();
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testGetOpenLogins_Empty() {
-		when(loginRepository.findLockedLoginsWithOpenLogout()).thenReturn(Collections.emptyList());
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
 		List<Login> result = loginService.getOpenLogins();
 
 		assertNotNull(result);
 		assertTrue(result.isEmpty());
-		verify(loginRepository).findLockedLoginsWithOpenLogout();
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	// ==================== getCurrentShiftTimeForEmployee Tests
 	// ====================
 
 	@Test
-	void testGetCurrentShiftTimeForEmployee_Found() {
-		when(shiftTimeRepo.findCurrentShiftTimeForEmployee(1)).thenReturn(Optional.of(shiftTime));
+	void testGetCurrentShiftTimeForEmployee_Found_WithSpec() {
+		when(shiftTimeRepo.findAll(any(Specification.class))).thenReturn(Collections.singletonList(shiftTime));
 
 		ShiftTime result = loginService.getCurrentShiftTimeForEmployee(1);
 
 		assertNotNull(result);
 		assertEquals(1, result.getShiftTimeId());
-		verify(shiftTimeRepo).findCurrentShiftTimeForEmployee(1);
+		verify(shiftTimeRepo).findAll(any(Specification.class));
 	}
 
 	@Test
-	public void testGetCurrentShiftTimeForEmployee_NotFound_ReturnsDummy() {
-		Integer employeeId = 1;
+	void testGetCurrentShiftTimeForEmployee_NotFound_ReturnsDummy_WithSpec() {
+		when(shiftTimeRepo.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
-		Shift dummyShift = new Shift();
-		dummyShift.setShiftId(1);
-		dummyShift.setShiftName("Default Shift");
-
-		ShiftTime dummyShiftTime = new ShiftTime();
-		dummyShiftTime.setShiftTimeId(-1);
-		dummyShiftTime.setShiftId(dummyShift); // This was missing!
-
-		when(shiftTimeRepo.findCurrentShiftTimeForEmployee(employeeId)).thenReturn(Optional.empty());
-
-		ShiftTime result = loginService.getCurrentShiftTimeForEmployee(employeeId);
+		ShiftTime result = loginService.getCurrentShiftTimeForEmployee(1);
 
 		assertNotNull(result);
+		assertEquals(-1, result.getShiftTimeId());
+		verify(shiftTimeRepo).findAll(any(Specification.class));
 	}
+
 	// ==================== findActiveLoginWithinShift Tests ====================
 
 	@Test
 	void testFindActiveLoginWithinShift() {
-		when(loginRepository.findActiveLoginWithinShift(1)).thenReturn(Optional.of(login));
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
 
 		Optional<Login> result = loginService.findActiveLoginWithinShift(1);
 
 		assertTrue(result.isPresent());
 		assertEquals(1, result.get().getLoginId());
-		verify(loginRepository).findActiveLoginWithinShift(1);
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testFindActiveLoginWithinShift_NotFound() {
-		when(loginRepository.findActiveLoginWithinShift(999)).thenReturn(Optional.empty());
+		when(loginRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
 		Optional<Login> result = loginService.findActiveLoginWithinShift(999);
 
 		assertFalse(result.isPresent());
-		verify(loginRepository).findActiveLoginWithinShift(999);
+		verify(loginRepository).findAll(any(Specification.class));
 	}
 
 	// ==================== getTodayAttendance Tests ====================
 
 	@Test
 	void testGetTodayAttendance_Found() {
-		when(loginRepository.findTodayAttendanceByEmployee(1)).thenReturn(Optional.of(shiftTimeAttendance));
+		when(shiftTimeAttendanceRepository.findAll(any(Specification.class)))
+				.thenReturn(Collections.singletonList(shiftTimeAttendance));
 
 		ShiftTimeAttendance result = loginService.getTodayAttendance(1);
 
 		assertNotNull(result);
 		assertEquals(1, result.getShiftTimeAttendanceId());
-		verify(loginRepository).findTodayAttendanceByEmployee(1);
+		verify(shiftTimeAttendanceRepository).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testGetTodayAttendance_NotFound_CreatesNew() {
-		when(loginRepository.findTodayAttendanceByEmployee(1)).thenReturn(Optional.empty());
+		when(shiftTimeAttendanceRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 		when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
-		when(shiftTimeAttendanceRepository.save(any(ShiftTimeAttendance.class)))
-			.thenReturn(shiftTimeAttendance);
+		when(shiftTimeAttendanceRepository.save(any(ShiftTimeAttendance.class))).thenReturn(shiftTimeAttendance);
 
 		ShiftTimeAttendance result = loginService.getTodayAttendance(1);
 
 		assertNotNull(result);
-		verify(loginRepository).findTodayAttendanceByEmployee(1);
+		verify(shiftTimeAttendanceRepository).findAll(any(Specification.class));
 		verify(employeeRepository).findById(1);
 		verify(shiftTimeAttendanceRepository).save(any(ShiftTimeAttendance.class));
 	}
 
-
 	@Test
 	void testGetTodayAttendance_EmployeeNotFound() {
-		when(loginRepository.findTodayAttendanceByEmployee(999)).thenReturn(Optional.empty());
+		when(shiftTimeAttendanceRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 		when(employeeRepository.findById(999)).thenReturn(Optional.empty());
 
 		assertThrows(RuntimeException.class, () -> loginService.getTodayAttendance(999));
 
-		verify(loginRepository).findTodayAttendanceByEmployee(999);
+		verify(shiftTimeAttendanceRepository).findAll(any(Specification.class));
 		verify(employeeRepository).findById(999);
 		verify(shiftTimeAttendanceRepository, never()).save(any(ShiftTimeAttendance.class));
 	}
-
 }

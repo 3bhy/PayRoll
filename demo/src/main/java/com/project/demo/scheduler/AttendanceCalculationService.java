@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.project.demo.entity.ShiftTimeAttendance;
 import com.project.demo.repo.shiftTimeAttendanceRepo;
 import com.project.demo.service.shiftTimeAttendanceService;
+import com.project.demo.specification.ShiftTimeAttendanceSpec;
 
 import jakarta.transaction.Transactional;
 
@@ -29,7 +30,8 @@ public class AttendanceCalculationService {
 	    LocalDate targetDate = LocalDate.now().minusDays(2);
 
 	    List<ShiftTimeAttendance> attendancesToCalculate =
-	        shiftTimeAttendanceRepo.findByTotalActiveTimeIsNullAndAttendanceDate(targetDate);
+	            shiftTimeAttendanceRepo.findAll(ShiftTimeAttendanceSpec.totalActiveTimeIsNullFromDate(targetDate));
+
 	    if (attendancesToCalculate.isEmpty()) {
 			System.out.println("No attendances To Calculate found");
 			return;

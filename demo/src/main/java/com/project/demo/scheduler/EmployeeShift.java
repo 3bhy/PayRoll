@@ -5,16 +5,15 @@ import java.time.LocalDate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 
-import com.project.demo.repo.EmployeeShiftRepo;
-
+import com.project.demo.specification.EmployeeShiftSpec;
 
 public class EmployeeShift {
 	 @Autowired
-	    private EmployeeShiftRepo employeeShiftRepo;
+	    private EmployeeShiftSpec employeeShiftSpec;
 	    @Scheduled(cron = "0 0 0 * * ?")
 	    public void activateEmployeeShift() {
 	        LocalDate today = LocalDate.now();
-	        employeeShiftRepo.activateCurrentShifts(today);
-	        employeeShiftRepo.deactivateExpiredShifts(today);
+	        employeeShiftSpec.activateCurrentShifts(today);
+	        employeeShiftSpec.deactivateExpiredShifts(today);
 	    }
 }

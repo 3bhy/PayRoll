@@ -18,6 +18,7 @@ import com.project.demo.entity.ShiftTime;
 import com.project.demo.model.LoginModel;
 import com.project.demo.repo.LoginRepo;
 import com.project.demo.service.LoginService;
+import com.project.demo.specification.LoginSpec;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -160,8 +161,13 @@ public class LoginController {
     @PostMapping("/logout/by-employee")
     public ResponseEntity<?> logoutByEmployeeId(@RequestParam Integer employeeId) {
         try {
-            Login activeLogin = loginRepository.findActiveLogins(employeeId).stream().findFirst().orElseThrow(() ->
-                    new EntityNotFoundException("No active login found for employee id: " + employeeId));
+        	Login activeLogin = loginRepository.findAll(LoginSpec.activeLoginsForEmployee(employeeId))
+        	        .stream()
+        	        .findFirst()
+        	        .orElseThrow(() ->
+        	            new EntityNotFoundException("No active login found for employee id: " + employeeId)
+        	        );
+
 
             Integer shiftAttendanceId = null;
             if (activeLogin.getShiftTimeAttendanceId() != null) {

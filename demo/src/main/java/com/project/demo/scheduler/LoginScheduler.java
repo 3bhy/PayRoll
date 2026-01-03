@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import com.project.demo.entity.Login;
 import com.project.demo.repo.LoginRepo;
 import com.project.demo.service.LoginService;
+import com.project.demo.specification.LoginSpec;
 
 @Component
 public class LoginScheduler {
@@ -31,15 +32,21 @@ public class LoginScheduler {
 			// select all rows from login whose "locked" is false and loginDateTime is
 			// before now with at least 24 hours
 			LocalDateTime twentyFourHoursAgo = LocalDateTime.now().minusHours(24);
-			List<Login> unlockedOldLogins = loginRepo.findUnlockedLoginsBefore24Hours(twentyFourHoursAgo);
+			List<Login> oldUnlockedLogins = loginRepo.findAll(LoginSpec.unlockedBefore(twentyFourHoursAgo));
 
-			if (unlockedOldLogins.isEmpty()) {
+			if (oldUnlockedLogins.isEmpty()) {
 				System.out.println("No old unlocked logins found");
 				return;
 			}
 
 			// Call lockLogin function
-			loginService.lockLogin(null, unlockedOldLogins);
+			for (Login login : oldUnlockedLogins) {
+			    if (login.getEmployee() != null) {
+			        Integer employeeId = login.getEmployee().getEmployee(); 
+			        loginService.lockLogin(employeeId, oldUnlockedLogins);
+			    }
+			}
+
 
 		} catch (Exception e) {
 			e.printStackTrace();

@@ -3,6 +3,7 @@ package com.project.demo.service;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -11,7 +12,9 @@ import com.project.demo.entity.Employee;
 import com.project.demo.entity.EmployeeShift;
 import com.project.demo.entity.Shift;
 import com.project.demo.model.EmployeeShiftModel;
+import com.project.demo.repo.EmployeeRepo;
 import com.project.demo.repo.EmployeeShiftRepo;
+import com.project.demo.specification.EmployeeShiftSpec;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -20,24 +23,34 @@ public class EmployeeShiftService {
 
 	@Autowired
 	private EmployeeShiftRepo employeeshiftRepository;
+	@Autowired
+	private EmployeeRepo employeeRepository;
 
-	public EmployeeShiftService(EmployeeShiftRepo employeeshiftRepository) {
-		this.employeeshiftRepository = employeeshiftRepository;
-	}
+	public EmployeeShiftService(EmployeeShiftRepo employeeshiftRepository, EmployeeRepo employeeRepository) {
+        this.employeeshiftRepository = employeeshiftRepository;
+        this.employeeRepository = employeeRepository;
+    }
 
 	public List<EmployeeShift> getShiftsByIdAndFilters(Integer employeeId, Boolean active, Date startActiveDate,
-			Date endActiveDate, Integer companyId) {
+	        Date endActiveDate, Integer companyId) {
 
-		return employeeshiftRepository.findShiftsByFilters(employeeId, active, companyId, startActiveDate,
-				endActiveDate);
+	    return employeeshiftRepository.findAll(
+	            EmployeeShiftSpec.filterShifts(employeeId, active, companyId, startActiveDate, endActiveDate)
+	    );
 	}
 
 	public List<EmployeeShift> getEmployeeShiftIds(Integer employeeId) {
-		if (employeeId == null) {
-			throw new IllegalArgumentException("Employee ID cannot be null");
-		}
-		return employeeshiftRepository.findActiveShiftsByEmployeeId(employeeId);
+	    if (employeeId == null) {
+	        throw new IllegalArgumentException("Employee ID cannot be null");
+	    }
+	    List<EmployeeShift> activeShifts = employeeshiftRepository.findAll(
+	    	    EmployeeShiftSpec.hasEmployee(employeeId)
+	    	        .and(EmployeeShiftSpec.isActive())
+	    	);
+	    return activeShifts;
+	  
 	}
+
 
 	// create
 	public EmployeeShift createShift(EmployeeShiftModel shiftModel) {
@@ -132,18 +145,29 @@ public class EmployeeShiftService {
 
 	// new Update
 	public List<Integer> getActiveShifts(Integer employeeId) {
-		List<Integer> activeShifts = employeeshiftRepository.findActiveShiftIdsByEmployeeId(employeeId);
 
-		if (activeShifts.isEmpty()) {
-			throw new EntityNotFoundException("No active shifts found for employee with id: " + employeeId);
-		}
+	    List<EmployeeShift> shifts = employeeshiftRepository.findAll(
+	            EmployeeShiftSpec.hasEmployee(employeeId)
+	                    .and(EmployeeShiftSpec.isActive())
+	    );
 
-		return activeShifts;
+	    if (shifts.isEmpty()) {
+	        throw new EntityNotFoundException(
+	                "No active shifts found for employee with id: " + employeeId
+	        );
+	    }
+
+	    return shifts.stream()
+	            .map(es -> es.getShift().getShiftId())
+	            .collect(Collectors.toList()); 
 	}
+
 
 	// Swap
 	public EmployeeShift swapShift(EmployeeShiftModel shiftModel, Boolean temporary) {
-
+		  if (temporary == null) {
+		        throw new IllegalArgumentException("Temporary parameter cannot be null");
+		    }
 		LocalDate today = LocalDate.now();
 
 		// Validation: end date of new shift
@@ -151,9 +175,10 @@ public class EmployeeShiftService {
 			throw new IllegalArgumentException("New shift end date cannot be before today");
 		}
 
-		EmployeeShift currentShift = employeeshiftRepository
-				.findEmployeeShift(shiftModel.getShiftId(), shiftModel.getEmployeeId())
-				.orElseThrow(() -> new IllegalStateException("Selected shift not found"));
+		EmployeeShift currentShift = employeeshiftRepository.findAll(
+		        EmployeeShiftSpec.hasShiftAndEmployee(shiftModel.getShiftId(), shiftModel.getEmployeeId())
+		).stream().findFirst()
+		  .orElseThrow(() -> new IllegalStateException("Selected shift not found"));
 
 		if (!currentShift.getEmployee().getEmployee().equals(shiftModel.getEmployeeId())) {
 			throw new IllegalArgumentException("Selected shift does not belong to this employee");
@@ -194,11 +219,11 @@ public class EmployeeShiftService {
 	}
 
 	private EmployeeShift convertToEmployeeShift(EmployeeShiftModel model) {
-		EmployeeShift employee = employeeshiftRepository.findById(model.getEmployeeId())
+		Employee employee = employeeRepository.findById(model.getEmployeeId())
 				.orElseThrow(() -> new EntityNotFoundException("Employee not found"));
 
 		EmployeeShift shift = new EmployeeShift();
-		shift.setEmployee(employee.getEmployee());
+		shift.setEmployee(employee);
 		shift.setStartActiveDate(model.getStartActiveDate());
 		shift.setEndActiveDate(model.getEndActiveDate());
 		shift.setActive(true);

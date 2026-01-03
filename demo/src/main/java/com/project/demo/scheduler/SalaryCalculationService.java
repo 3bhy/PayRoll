@@ -1,8 +1,9 @@
 package com.project.demo.scheduler;
 
 import com.project.demo.entity.Employee;
-import com.project.demo.repo.EmployeeSalaryRepo;
+import com.project.demo.repo.EmployeeRepo;
 import com.project.demo.service.EmployeeSalaryService;
+import com.project.demo.specification.EmployeeSpec;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,7 +18,7 @@ import java.util.List;
 public class SalaryCalculationService {
 
 	@Autowired
-	private EmployeeSalaryRepo employeeSalaryRepo;
+	private EmployeeRepo employeeRepo;
 
 	@Autowired
 	private EmployeeSalaryService employeeSalaryService;
@@ -26,8 +27,9 @@ public class SalaryCalculationService {
 	public void calculateMonthlySalaries() {
 		YearMonth currentYearMonth = YearMonth.now();
 
-		List<Employee> employeesWithoutSalary = employeeSalaryRepo
-				.findEmployeesWithoutSalary(currentYearMonth.getYear(), currentYearMonth.getMonthValue());
+		List<Employee> employeesWithoutSalary = employeeRepo.findAll(EmployeeSpec
+				.withoutSalaryForYearAndMonth(currentYearMonth.getYear(), currentYearMonth.getMonthValue()));
+
 		if (employeesWithoutSalary.isEmpty()) {
 			System.out.println("No employees Without Salary found");
 			return;

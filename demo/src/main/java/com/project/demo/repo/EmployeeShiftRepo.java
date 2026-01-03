@@ -1,52 +1,66 @@
 package com.project.demo.repo;
 
-import java.time.LocalDate;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+
 import org.springframework.stereotype.Repository;
+
 import com.project.demo.entity.EmployeeShift;
 
 @Repository
-public interface EmployeeShiftRepo extends JpaRepository<EmployeeShift, Integer> {
+public interface EmployeeShiftRepo
+		extends JpaRepository<EmployeeShift, Integer>, JpaSpecificationExecutor<EmployeeShift> {
 
-	@Query("SELECT es.shift.shiftId FROM EmployeeShift es WHERE es.employee.employeeId = :employeeId AND es.active = true")
-	List<Integer> findActiveShiftIdsByEmployeeId(@Param("employeeId") Integer employeeId);
-	@Query("SELECT es FROM EmployeeShift es WHERE es.employee.employeeId = :employeeId AND es.active = true")
-	List<EmployeeShift> findActiveShiftsByEmployeeId(@Param("employeeId") Integer employeeId);
+	/*
+	 * @Query("SELECT es.shift.shiftId FROM EmployeeShift es WHERE es.employee.employeeId = :employeeId AND es.active = true"
+	 * ) List<Integer> findActiveShiftIdsByEmployeeId(@Param("employeeId") Integer
+	 * employeeId);
+	 */
 
-
-	@Query("SELECT es FROM EmployeeShift  es " + "JOIN es.employee e "
-			+ "WHERE (:employeeId IS NULL OR e.employeeId = :employeeId) "
-			+ "AND (:active IS NULL OR es.active = :active) " + "AND (:companyId IS NULL OR e.company.id = :companyId) "
-			+ "AND ((:startActiveDate IS NULL AND :endActiveDate IS NULL) "
-			+ "OR (:startActiveDate IS NOT NULL AND :endActiveDate IS NULL AND es.startActiveDate >= :startActiveDate) "
-			+ "OR (:startActiveDate IS NULL AND :endActiveDate IS NOT NULL AND es.endActiveDate <= :endActiveDate) "
-			+ "OR (:startActiveDate IS NOT NULL AND :endActiveDate IS NOT NULL AND es.startActiveDate >= :startActiveDate AND es.endActiveDate <= :endActiveDate))")
-	List<EmployeeShift> findShiftsByFilters(@Param("employeeId") Integer employeeId, @Param("active") Boolean active,
-			@Param("companyId") Integer companyId, @Param("startActiveDate") Date startActiveDate,
-			@Param("endActiveDate") Date endActiveDate);
-	//new Update
-	@Query("SELECT es FROM EmployeeShift es WHERE es.shift.shiftId = :shiftId AND es.employee.employeeId = :employeeId")
-	Optional<EmployeeShift> findEmployeeShift(@Param("shiftId") Integer shiftId, @Param("employeeId") Integer employeeId);
-
-	 @Modifying
-	    @Query("UPDATE EmployeeShift es SET es.active = true " +
-	           "WHERE es.startActiveDate <= :today " +
-	           "AND es.endActiveDate >= :today " +
-	           "AND es.active = false")  
-	    int activateCurrentShifts(@Param("today") LocalDate today);
-	    
-	    @Modifying
-	    @Query("UPDATE EmployeeShift es SET es.active = false " +
-	           "WHERE (es.endActiveDate < :today OR es.startActiveDate > :today) " +
-	           "AND es.active = true")  
-	    int deactivateExpiredShifts(@Param("today") LocalDate today);
-
-
+	/*
+	 * @Query("SELECT es FROM EmployeeShift es WHERE es.employee.employeeId = :employeeId AND es.active = true"
+	 * ) List<EmployeeShift> findActiveShiftsByEmployeeId(@Param("employeeId")
+	 * Integer employeeId);
+	 */
+	/*
+	 * @Query("SELECT es FROM EmployeeShift  es " + "JOIN es.employee e " +
+	 * "WHERE (:employeeId IS NULL OR e.employeeId = :employeeId) " +
+	 * "AND (:active IS NULL OR es.active = :active) " +
+	 * "AND (:companyId IS NULL OR e.company.id = :companyId) " +
+	 * "AND ((:startActiveDate IS NULL AND :endActiveDate IS NULL) " +
+	 * "OR (:startActiveDate IS NOT NULL AND :endActiveDate IS NULL AND es.startActiveDate >= :startActiveDate) "
+	 * +
+	 * "OR (:startActiveDate IS NULL AND :endActiveDate IS NOT NULL AND es.endActiveDate <= :endActiveDate) "
+	 * +
+	 * "OR (:startActiveDate IS NOT NULL AND :endActiveDate IS NOT NULL AND es.startActiveDate >= :startActiveDate AND es.endActiveDate <= :endActiveDate))"
+	 * ) List<EmployeeShift> findShiftsByFilters(@Param("employeeId") Integer
+	 * employeeId, @Param("active") Boolean active,
+	 * 
+	 * @Param("companyId") Integer companyId, @Param("startActiveDate") Date
+	 * startActiveDate,
+	 * 
+	 * @Param("endActiveDate") Date endActiveDate);
+	 */
+	// new Update
+	/*
+	 * @Query("SELECT es FROM EmployeeShift es WHERE es.shift.shiftId = :shiftId AND es.employee.employeeId = :employeeId"
+	 * ) Optional<EmployeeShift> findEmployeeShift(@Param("shiftId") Integer
+	 * shiftId, @Param("employeeId") Integer employeeId);
+	 */
+	/*
+	 * @Modifying
+	 * 
+	 * @Query("UPDATE EmployeeShift es SET es.active = true " +
+	 * "WHERE es.startActiveDate <= :today " + "AND es.endActiveDate >= :today " +
+	 * "AND es.active = false") int activateCurrentShifts(@Param("today") LocalDate
+	 * today);
+	 * 
+	 * @Modifying
+	 * 
+	 * @Query("UPDATE EmployeeShift es SET es.active = false " +
+	 * "WHERE (es.endActiveDate < :today OR es.startActiveDate > :today) " +
+	 * "AND es.active = true") int deactivateExpiredShifts(@Param("today") LocalDate
+	 * today);
+	 * 
+	 */
 }

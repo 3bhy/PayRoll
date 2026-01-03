@@ -4,15 +4,17 @@ import com.project.demo.entity.Employee;
 import com.project.demo.entity.EmployeeShift;
 import com.project.demo.entity.Shift;
 import com.project.demo.model.EmployeeShiftModel;
+import com.project.demo.repo.EmployeeRepo;
 import com.project.demo.repo.EmployeeShiftRepo;
 import com.project.demo.service.EmployeeShiftService;
+
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.sql.Date;
 import java.time.LocalDate;
@@ -24,373 +26,450 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class EmployeeShiftTest {
 
-	@Mock
-	private EmployeeShiftRepo employeeShiftRepository;
-
-	@InjectMocks
-	private EmployeeShiftService employeeShiftService;
-
-	private EmployeeShift employeeShift;
-	private EmployeeShiftModel employeeShiftModel;
-	private Employee employee;
-	private Shift shift;
-	private LocalDate today;
-	private LocalDate tomorrow;
-	private LocalDate yesterday;
-	private LocalDate nextWeek;
-
-	@BeforeEach
-	void setUp() {
-		today = LocalDate.now();
-		tomorrow = LocalDate.now().plusDays(1);
-		yesterday = LocalDate.now().minusDays(1);
-		nextWeek = LocalDate.now().plusDays(7);
-
-		employeeShiftModel = new EmployeeShiftModel();
-
-		employee = new Employee();
-		employee.setEmployeeId(1);
-
-		shift = new Shift();
-		shift.setShiftId(1);
-
-		employeeShift = new EmployeeShift();
-		employeeShift.setEmployeeShiftId(1);
-		employeeShift.setEmployee(employee);
-		employeeShift.setShift(shift);
-		employeeShift.setActive(true);
-		employeeShift.setStartActiveDate(today);
-		employeeShift.setEndActiveDate(nextWeek);
-
-		employeeShiftModel.setEmployeeId(1);
-		employeeShiftModel.setShiftId(1);
-		employeeShiftModel.setActive(true);
-		employeeShiftModel.setStartActiveDate(today);
-		employeeShiftModel.setEndActiveDate(tomorrow);
-	}
-
-	// ==================== swapShift Tests ====================
-
-	@Test
-	void testSwapShift_NewShiftStartsBeforeToday_TemporaryFalse() {
-		employeeShiftModel.setStartActiveDate(yesterday);
-		employeeShiftModel.setEndActiveDate(tomorrow);
-
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.save(any(EmployeeShift.class))).thenAnswer(invocation -> {
-			EmployeeShift saved = invocation.getArgument(0);
-			if (saved.getEmployeeShiftId() == null) {
-				saved.setEmployeeShiftId(100);
-			}
-			return saved;
-		});
-
-		EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
-
-		assertNotNull(result);
-		verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
-	}
-
-	@Test
-	void testSwapShift_NewShiftStartsBeforeToday_TemporaryTrue() {
-		employeeShiftModel.setStartActiveDate(yesterday);
-		employeeShiftModel.setEndActiveDate(today);
-
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.save(any(EmployeeShift.class)))
-				.thenAnswer(invocation -> invocation.getArgument(0));
-
-		EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, true);
-
-		assertNotNull(result);
-
-		verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
-	}
-
-	@Test
-	void testSwapShift_NewShiftStartsBeforeCurrentEnd_TemporaryFalse() {
-		employeeShiftModel.setStartActiveDate(tomorrow);
-		employeeShiftModel.setEndActiveDate(today.plusDays(3));
-
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.save(any(EmployeeShift.class)))
-				.thenAnswer(invocation -> invocation.getArgument(0));
-
-		EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
-
-		assertNotNull(result);
-		verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
-	}
-
-	@Test
-	void testSwapShift_NewShiftStartsBeforeCurrentEnd_TemporaryTrue() {
-		employeeShift.setEndActiveDate(today.plusDays(10));
-		employeeShiftModel.setStartActiveDate(tomorrow);
-		employeeShiftModel.setEndActiveDate(today.plusDays(3));
+    @Mock
+    private EmployeeShiftRepo employeeShiftRepository;
+    
+    @Mock
+    private EmployeeRepo employeeRepository;
+    
+    private EmployeeShiftService employeeShiftService; 
+
+    private EmployeeShift employeeShift;
+    private EmployeeShiftModel employeeShiftModel;
+    private Employee employee;
+    private Shift shift;
+    private LocalDate today;
+    private LocalDate tomorrow;
+    private LocalDate yesterday;
+    private LocalDate nextWeek;
+
+    @BeforeEach
+    void setUp() {
+        employeeShiftService = new EmployeeShiftService(employeeShiftRepository, employeeRepository);
+
+        today = LocalDate.now();
+        tomorrow = LocalDate.now().plusDays(1);
+        yesterday = LocalDate.now().minusDays(1);
+        nextWeek = LocalDate.now().plusDays(7);
+
+        employeeShiftModel = new EmployeeShiftModel();
+
+        employee = new Employee();
+        employee.setEmployeeId(1);
+
+        shift = new Shift();
+        shift.setShiftId(1);
+
+        employeeShift = new EmployeeShift();
+        employeeShift.setEmployeeShiftId(1);
+        employeeShift.setEmployee(employee);
+        employeeShift.setShift(shift);
+        employeeShift.setActive(true);
+        employeeShift.setStartActiveDate(today);
+        employeeShift.setEndActiveDate(nextWeek);
+
+        employeeShiftModel.setEmployeeId(1);
+        employeeShiftModel.setShiftId(1);
+        employeeShiftModel.setActive(true);
+        employeeShiftModel.setStartActiveDate(today);
+        employeeShiftModel.setEndActiveDate(tomorrow);
+    }
+
+    @Test
+    void testSwapShift_NewShiftStartsBeforeToday_TemporaryFalse() {
+        employeeShiftModel.setStartActiveDate(yesterday);
+        employeeShiftModel.setEndActiveDate(tomorrow);
+
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Arrays.asList(employeeShift));
+
+        when(employeeShiftRepository.save(any(EmployeeShift.class))).thenAnswer(invocation -> {
+            EmployeeShift saved = invocation.getArgument(0);
+            if (saved.getEmployeeShiftId() == null) saved.setEmployeeShiftId(100);
+            return saved;
+        });
+
+        EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
+
+        assertNotNull(result);
+        verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
+    }
+
+    @Test
+    void testSwapShift_NewShiftStartsBeforeToday_TemporaryTrue() {
+        employeeShiftModel.setStartActiveDate(yesterday);
+        employeeShiftModel.setEndActiveDate(today);
+
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Arrays.asList(employeeShift));
+        
+        when(employeeShiftRepository.save(any(EmployeeShift.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, true);
+
+        assertNotNull(result);
+        verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
+    }
+
+    @Test
+    void testSwapShift_NewShiftStartsBeforeCurrentEnd_TemporaryFalse() {
+        employeeShiftModel.setStartActiveDate(tomorrow);
+        employeeShiftModel.setEndActiveDate(today.plusDays(3));
+
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Arrays.asList(employeeShift));
+        
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        
+        when(employeeShiftRepository.save(any(EmployeeShift.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
+
+        assertNotNull(result);
+        verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
+        verify(employeeRepository).findById(1);
+    }
+
+    @Test
+    void testSwapShift_NewShiftStartsBeforeCurrentEnd_TemporaryTrue() {
+        employeeShift.setEndActiveDate(today.plusDays(10));
+        employeeShiftModel.setStartActiveDate(tomorrow);
+        employeeShiftModel.setEndActiveDate(today.plusDays(3));
+
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Arrays.asList(employeeShift));
+        
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        
+        when(employeeShiftRepository.save(any(EmployeeShift.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, true);
+
+        assertNotNull(result);
+        verify(employeeShiftRepository, times(3)).save(any(EmployeeShift.class));
+        verify(employeeRepository).findById(1);
+    }
+
+    @Test
+    void testSwapShift_NewShiftStartsAfterCurrentEnd_TemporaryFalse() {
+        employeeShiftModel.setStartActiveDate(nextWeek.plusDays(1));
+        employeeShiftModel.setEndActiveDate(nextWeek.plusDays(7));
+
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Arrays.asList(employeeShift));
+        
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        
+        when(employeeShiftRepository.save(any(EmployeeShift.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
+
+        assertNotNull(result);
+        verify(employeeShiftRepository, times(1)).save(any(EmployeeShift.class));
+        verify(employeeRepository).findById(1);
+    }
+
+    @Test
+    void testSwapShift_NewShiftStartsAfterCurrentEnd_TemporaryTrue() {
+        employeeShift.setEndActiveDate(nextWeek.plusDays(10));
+        employeeShiftModel.setStartActiveDate(nextWeek.plusDays(1));
+        employeeShiftModel.setEndActiveDate(nextWeek.plusDays(3));
+
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Arrays.asList(employeeShift));
+        
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        
+        when(employeeShiftRepository.save(any(EmployeeShift.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, true);
+
+        assertNotNull(result);
+        verify(employeeShiftRepository, times(3)).save(any(EmployeeShift.class));
+        verify(employeeRepository).findById(1);
+    }
+
+    @Test
+    void testSwapShift_EndDateBeforeToday_ShouldThrowException() {
+        employeeShiftModel.setEndActiveDate(yesterday);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> employeeShiftService.swapShift(employeeShiftModel, false));
+
+        assertEquals("New shift end date cannot be before today", exception.getMessage());
+
+        verify(employeeShiftRepository, never()).findAll(any(Specification.class));
+        verify(employeeShiftRepository, never()).save(any(EmployeeShift.class));
+        verify(employeeRepository, never()).findById(anyInt());
+    }
+
+    @Test
+    void testSwapShift_ShiftNotFound_ShouldThrowException() {
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Collections.emptyList());
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> employeeShiftService.swapShift(employeeShiftModel, false));
+
+        assertEquals("Selected shift not found", exception.getMessage());
+        verify(employeeShiftRepository).findAll(any(Specification.class));
+        verify(employeeRepository, never()).findById(anyInt());
+    }
+
+    @Test
+    void testSwapShift_ShiftDoesNotBelongToEmployee_ShouldThrowException() {
+        Employee differentEmployee = new Employee();
+        differentEmployee.setEmployeeId(999);
+
+        EmployeeShift differentShift = new EmployeeShift();
+        differentShift.setEmployee(differentEmployee);
+
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Arrays.asList(differentShift));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> employeeShiftService.swapShift(employeeShiftModel, false));
+
+        assertEquals("Selected shift does not belong to this employee", exception.getMessage());
+    }
+
+    @Test
+    void testSwapShift_NewShiftStartsToday() {
+        employeeShiftModel.setStartActiveDate(today);
+        employeeShiftModel.setEndActiveDate(tomorrow);
+
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Arrays.asList(employeeShift));
+        
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        
+        when(employeeShiftRepository.save(any(EmployeeShift.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
+
+        assertNotNull(result);
+        verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
+        verify(employeeRepository).findById(1);
+    }
+
+    @Test
+    void testSwapShift_NewShiftStartsAndEndsSameDay() {
+        employeeShiftModel.setStartActiveDate(today);
+        employeeShiftModel.setEndActiveDate(today);
+
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Arrays.asList(employeeShift));
+        
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        
+        when(employeeShiftRepository.save(any(EmployeeShift.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
+
+        assertNotNull(result);
+        verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
+        verify(employeeRepository).findById(1);
+    }
+
+    @Test
+    void testSwapShift_TemporaryNull_ShouldThrowException() {
+        employeeShiftModel.setStartActiveDate(tomorrow);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                employeeShiftService.swapShift(employeeShiftModel, null)
+        );
+
+        assertEquals("Temporary parameter cannot be null", exception.getMessage());
+        
+        verify(employeeShiftRepository, never()).findAll(any(Specification.class));
+        verify(employeeRepository, never()).findById(anyInt());
+    }
+
+    @Test
+    void testSwapShift_TemporaryFalse() {
+        employeeShiftModel.setStartActiveDate(tomorrow);
+
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+                .thenReturn(Arrays.asList(employeeShift));
+        
+        when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
+        
+        when(employeeShiftRepository.save(any(EmployeeShift.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
+
+        assertNotNull(result);
+        verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
+        verify(employeeRepository).findById(1);
+    }
+
+    // ==================== createShift Tests ====================
+
+    @Test
+    void testCreateShift() {
+        EmployeeShiftModel testModel = new EmployeeShiftModel();
+        testModel.setEmployeeId(1);
+        testModel.setShiftId(1);
+        testModel.setActive(true);
+        testModel.setStartActiveDate(today);
+        testModel.setEndActiveDate(tomorrow);
 
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.save(any(EmployeeShift.class)))
-				.thenAnswer(invocation -> invocation.getArgument(0));
+        when(employeeShiftRepository.save(any(EmployeeShift.class))).thenReturn(employeeShift);
+
+        EmployeeShift result = employeeShiftService.createShift(testModel);
+
+        assertNotNull(result);
+        assertEquals(1, result.getEmployeeShiftId());
+        verify(employeeShiftRepository).save(any(EmployeeShift.class));
+    }
 
-		EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, true);
+    // ==================== getShiftsByIdAndFilters Tests ====================
 
-		assertNotNull(result);
-		verify(employeeShiftRepository, times(3)).save(any(EmployeeShift.class));
-	}
+    @Test
+    void testGetShiftsByIdAndFilters_AllFilters() {
+        List<EmployeeShift> expected = Arrays.asList(employeeShift);
 
-	@Test
-	void testSwapShift_NewShiftStartsAfterCurrentEnd_TemporaryFalse() {
-		employeeShiftModel.setStartActiveDate(nextWeek.plusDays(1));
-		employeeShiftModel.setEndActiveDate(nextWeek.plusDays(7));
+        when(employeeShiftRepository.findAll(any(Specification.class))).thenReturn(expected);
 
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.save(any(EmployeeShift.class)))
-				.thenAnswer(invocation -> invocation.getArgument(0));
+        List<EmployeeShift> result = employeeShiftService.getShiftsByIdAndFilters(
+                1, true, Date.valueOf(today), Date.valueOf(tomorrow), 1
+        );
 
-		EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
+        assertNotNull(result);
+        assertEquals(1, result.size());
 
-		assertNotNull(result);
-		verify(employeeShiftRepository, times(1)).save(any(EmployeeShift.class));
-	}
+        verify(employeeShiftRepository).findAll(any(Specification.class));
+    }
 
-	@Test
-	void testSwapShift_NewShiftStartsAfterCurrentEnd_TemporaryTrue() {
-		employeeShift.setEndActiveDate(nextWeek.plusDays(10));
-		employeeShiftModel.setStartActiveDate(nextWeek.plusDays(1));
-		employeeShiftModel.setEndActiveDate(nextWeek.plusDays(3));
+    // ==================== getShiftsById Tests ====================
 
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.save(any(EmployeeShift.class)))
-				.thenAnswer(invocation -> invocation.getArgument(0));
+    @Test
+    void testGetShiftsById() {
+        when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
 
-		EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, true);
+        EmployeeShift result = employeeShiftService.getShiftsById(1);
 
-		assertNotNull(result);
-		verify(employeeShiftRepository, times(3)).save(any(EmployeeShift.class));
-	}
+        assertNotNull(result);
+        assertEquals(1, result.getEmployeeShiftId());
+        verify(employeeShiftRepository).findById(1);
+    }
 
-	@Test
-	void testSwapShift_EndDateBeforeToday_ShouldThrowException() {
-		employeeShiftModel.setEndActiveDate(yesterday);
+    // ==================== updateEmployeeShift Tests ====================
 
-		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-				() -> employeeShiftService.swapShift(employeeShiftModel, false));
+    @Test
+    void testUpdateEmployeeShift() {
+        EmployeeShift updateDetails = new EmployeeShift();
+        updateDetails.setActive(false);
+        updateDetails.setStartActiveDate(tomorrow);
+        updateDetails.setEndActiveDate(LocalDate.now().plusDays(2));
 
-		assertEquals("New shift end date cannot be before today", exception.getMessage());
-		verify(employeeShiftRepository, never()).findEmployeeShift(anyInt(), anyInt());
-	}
+        when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
+        when(employeeShiftRepository.save(any(EmployeeShift.class))).thenReturn(updateDetails);
 
-	@Test
-	void testSwapShift_ShiftNotFound_ShouldThrowException() {
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.empty());
+        EmployeeShift result = employeeShiftService.updateEmployeeShift(1, updateDetails);
 
-		IllegalStateException exception = assertThrows(IllegalStateException.class,
-				() -> employeeShiftService.swapShift(employeeShiftModel, false));
+        assertNotNull(result);
+        assertFalse(result.getActive());
+        verify(employeeShiftRepository).findById(1);
+        verify(employeeShiftRepository).save(any(EmployeeShift.class));
+    }
 
-		assertEquals("Selected shift not found", exception.getMessage());
-		verify(employeeShiftRepository).findEmployeeShift(1, 1);
-	}
+    // ==================== deleteShifts Tests ====================
 
-	@Test
-	void testSwapShift_ShiftDoesNotBelongToEmployee_ShouldThrowException() {
-		Employee differentEmployee = new Employee();
-		differentEmployee.setEmployeeId(999);
+    @Test
+    void testDeleteShifts() {
+        when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
+        doNothing().when(employeeShiftRepository).delete(employeeShift);
 
-		EmployeeShift differentShift = new EmployeeShift();
-		differentShift.setEmployee(differentEmployee);
+        employeeShiftService.deleteShifts(1);
 
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(differentShift));
+        verify(employeeShiftRepository).findById(1);
+        verify(employeeShiftRepository).delete(employeeShift);
+    }
 
-		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-				() -> employeeShiftService.swapShift(employeeShiftModel, false));
+    // ==================== getEmployeeShiftIds Tests ====================
 
-		assertEquals("Selected shift does not belong to this employee", exception.getMessage());
-	}
+    @Test
+    void testGetEmployeeShiftIds() {
+        Shift shift = new Shift();
+        shift.setShiftId(1);
 
-	@Test
-	void testSwapShift_NewShiftStartsToday() {
-		employeeShiftModel.setStartActiveDate(today);
-		employeeShiftModel.setEndActiveDate(tomorrow);
+        EmployeeShift employeeShift = new EmployeeShift();
+        employeeShift.setShift(shift);
+        employeeShift.setActive(true);
 
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.save(any(EmployeeShift.class)))
-				.thenAnswer(invocation -> invocation.getArgument(0));
+        List<EmployeeShift> mockShifts = Arrays.asList(employeeShift);
 
-		EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
+        when(employeeShiftRepository.findAll(any(Specification.class))).thenReturn(mockShifts);
 
-		assertNotNull(result);
-		verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
-	}
+        List<EmployeeShift> result = employeeShiftService.getEmployeeShiftIds(1);
 
-	@Test
-	void testSwapShift_NewShiftStartsAndEndsSameDay() {
-		employeeShiftModel.setStartActiveDate(today);
-		employeeShiftModel.setEndActiveDate(today);
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(employeeShift, result.get(0));
 
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.save(any(EmployeeShift.class)))
-				.thenAnswer(invocation -> invocation.getArgument(0));
+        verify(employeeShiftRepository).findAll(any(Specification.class));
+    }
 
-		EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
+    // ==================== getActiveShifts Tests ====================
 
-		assertNotNull(result);
-		verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
-	}
+    @Test
+    void testGetActiveShifts() {
+        Shift shift1 = new Shift();
+        shift1.setShiftId(1);
 
-	@Test
-	void testSwapShift_TemporaryNull_ShouldThrowException() {
-		employeeShiftModel.setStartActiveDate(tomorrow);
+        Shift shift2 = new Shift();
+        shift2.setShiftId(2);
 
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
+        Shift shift3 = new Shift();
+        shift3.setShiftId(3);
 
-		assertThrows(NullPointerException.class, () -> employeeShiftService.swapShift(employeeShiftModel, null));
-	}
+        EmployeeShift es1 = new EmployeeShift();
+        es1.setShift(shift1);
+        es1.setActive(true);
 
-	@Test
-	void testSwapShift_TemporaryFalse() {
-		employeeShiftModel.setStartActiveDate(tomorrow);
+        EmployeeShift es2 = new EmployeeShift();
+        es2.setShift(shift2);
+        es2.setActive(true);
 
-		when(employeeShiftRepository.findEmployeeShift(1, 1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.save(any(EmployeeShift.class)))
-				.thenAnswer(invocation -> invocation.getArgument(0));
+        EmployeeShift es3 = new EmployeeShift();
+        es3.setShift(shift3);
+        es3.setActive(true);
 
-		EmployeeShift result = employeeShiftService.swapShift(employeeShiftModel, false);
+        List<EmployeeShift> mockShifts = Arrays.asList(es1, es2, es3);
 
-		assertNotNull(result);
-		verify(employeeShiftRepository, times(2)).save(any(EmployeeShift.class));
-	}
+        when(employeeShiftRepository.findAll(any(Specification.class))).thenReturn(mockShifts);
 
-	// ==================== createShift Tests ====================
+        List<Integer> result = employeeShiftService.getActiveShifts(1);
 
-	@Test
-	void testCreateShift() {
-		EmployeeShiftModel testModel = new EmployeeShiftModel();
-		testModel.setEmployeeId(1);
-		testModel.setShiftId(1);
-		testModel.setActive(true);
-		testModel.setStartActiveDate(today);
-		testModel.setEndActiveDate(tomorrow);
+        assertNotNull(result);
+        assertEquals(3, result.size());
+        assertEquals(Arrays.asList(1, 2, 3), result);
 
-		when(employeeShiftRepository.save(any(EmployeeShift.class))).thenReturn(employeeShift);
+        verify(employeeShiftRepository).findAll(any(Specification.class));
+    }
 
-		EmployeeShift result = employeeShiftService.createShift(testModel);
+    @Test
+    void testGetActiveShifts_NoActiveShifts() {
+        when(employeeShiftRepository.findAll(any(Specification.class)))
+            .thenReturn(Collections.emptyList());
 
-		assertNotNull(result);
-		assertEquals(1, result.getEmployeeShiftId());
-		verify(employeeShiftRepository).save(any(EmployeeShift.class));
-	}
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+            () -> employeeShiftService.getActiveShifts(999));
 
-	// ==================== getShiftsByIdAndFilters Tests ====================
+        assertEquals("No active shifts found for employee with id: 999", exception.getMessage());
 
-	@Test
-	void testGetShiftsByIdAndFilters_AllFilters() {
-		List<EmployeeShift> expected = Arrays.asList(employeeShift);
-		when(employeeShiftRepository.findShiftsByFilters(1, true, 1, Date.valueOf(today), Date.valueOf(tomorrow)))
-				.thenReturn(expected);
-
-		List<EmployeeShift> result = employeeShiftService.getShiftsByIdAndFilters(1, true, Date.valueOf(today),
-				Date.valueOf(tomorrow), 1);
-
-		assertNotNull(result);
-		assertEquals(1, result.size());
-		verify(employeeShiftRepository).findShiftsByFilters(1, true, 1, Date.valueOf(today), Date.valueOf(tomorrow));
-	}
-
-	// ==================== getShiftsById Tests ====================
-
-	@Test
-	void testGetShiftsById() {
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
-
-		EmployeeShift result = employeeShiftService.getShiftsById(1);
-
-		assertNotNull(result);
-		assertEquals(1, result.getEmployeeShiftId());
-		verify(employeeShiftRepository).findById(1);
-	}
-
-	// ==================== updateEmployeeShift Tests ====================
-
-	@Test
-	void testUpdateEmployeeShift() {
-		EmployeeShift updateDetails = new EmployeeShift();
-		updateDetails.setActive(false);
-		updateDetails.setStartActiveDate(tomorrow);
-		updateDetails.setEndActiveDate(LocalDate.now().plusDays(2));
-
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
-		when(employeeShiftRepository.save(any(EmployeeShift.class))).thenReturn(updateDetails);
-
-		EmployeeShift result = employeeShiftService.updateEmployeeShift(1, updateDetails);
-
-		assertNotNull(result);
-		assertFalse(result.getActive());
-		verify(employeeShiftRepository).findById(1);
-		verify(employeeShiftRepository).save(any(EmployeeShift.class));
-	}
-
-	// ==================== deleteShifts Tests ====================
-
-	@Test
-	void testDeleteShifts() {
-		when(employeeShiftRepository.findById(1)).thenReturn(Optional.of(employeeShift));
-		doNothing().when(employeeShiftRepository).delete(employeeShift);
-
-		employeeShiftService.deleteShifts(1);
-
-		verify(employeeShiftRepository).findById(1);
-		verify(employeeShiftRepository).delete(employeeShift);
-	}
-
-	// ==================== getEmployeeShiftIds Tests ====================
-
-	@Test
-	void testGetEmployeeShiftIds() {
-		List<EmployeeShift> expected = Arrays.asList(employeeShift);
-		when(employeeShiftRepository.findActiveShiftsByEmployeeId(1)).thenReturn(expected);
-
-		List<EmployeeShift> result = employeeShiftService.getEmployeeShiftIds(1);
-
-		assertNotNull(result);
-		assertEquals(1, result.size());
-		verify(employeeShiftRepository).findActiveShiftsByEmployeeId(1);
-	}
-
-	// ==================== getActiveShifts Tests ====================
-
-	@Test
-	void testGetActiveShifts() {
-		List<Integer> expected = Arrays.asList(1, 2, 3);
-		when(employeeShiftRepository.findActiveShiftIdsByEmployeeId(1)).thenReturn(expected);
-
-		List<Integer> result = employeeShiftService.getActiveShifts(1);
-
-		assertNotNull(result);
-		assertEquals(3, result.size());
-		assertEquals(expected, result);
-		verify(employeeShiftRepository).findActiveShiftIdsByEmployeeId(1);
-	}
-
-	@Test
-	void testGetActiveShifts_NoActiveShifts() {
-		when(employeeShiftRepository.findActiveShiftIdsByEmployeeId(999)).thenReturn(Collections.emptyList());
-
-		EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
-				() -> employeeShiftService.getActiveShifts(999));
-
-		assertEquals("No active shifts found for employee with id: 999", exception.getMessage());
-		verify(employeeShiftRepository).findActiveShiftIdsByEmployeeId(999);
-	}
+        verify(employeeShiftRepository).findAll(any(Specification.class));
+    }
 }

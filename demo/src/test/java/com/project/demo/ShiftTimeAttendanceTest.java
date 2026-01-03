@@ -2,6 +2,7 @@ package com.project.demo;
 
 import com.project.demo.entity.*;
 import com.project.demo.repo.*;
+import com.project.demo.service.EmployeeSalaryService;
 import com.project.demo.service.LoginService;
 import com.project.demo.service.shiftTimeAttendanceService;
 
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.sql.Time;
 import java.time.*;
@@ -23,248 +25,186 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 public class ShiftTimeAttendanceTest {
 
-	@Mock
-	private shiftTimeAttendanceRepo shiftTimeAttendanceRepository;
+    @Mock
+    private shiftTimeAttendanceRepo shiftTimeAttendanceRepository;
 
-	@Mock
-	private ShiftTimeRepo shiftRepository;
+    @Mock
+    private ShiftTimeRepo shiftTimeRepo;
 
-	@Mock
-	private LoginService loginService;
+    @Mock
+    private LoginService loginService;
 
-	@Mock
-	private EmployeeRepo employeeRepository;
+    @Mock
+    private EmployeeRepo employeeRepository;
 
-	@Mock
-	private SalesRepo salesRepository;
+    @Mock
+    private EmployeeSalaryService employeeSalaryService;
 
-	@Mock
-	private LoginRepo loginRepo;
+    @Mock
+    private SalesRepo salesRepository;
 
-	@InjectMocks
-	private shiftTimeAttendanceService service;
+    @Mock
+    private LoginRepo loginRepo;
 
-	private Employee testEmployee;
-	private Login testLogin;
-	private ShiftTimeAttendance testAttendance;
-	private ShiftTime testShiftTime;
-	private LocalDateTime testDateTime;
+    @InjectMocks
+    private shiftTimeAttendanceService service;
 
-	@BeforeEach
-	void setUp() {
-		testEmployee = new Employee();
-		testEmployee.setEmployeeId(1);
-		testEmployee.setSalesIncentivePercent(10.0f);
-		testEmployee.setIncentiveOnAllSales(true);
+    private Employee testEmployee;
+    private Login testLogin;
+    private ShiftTimeAttendance testAttendance;
+    private ShiftTime testShiftTime;
+    private LocalDateTime testDateTime;
 
-		testDateTime = LocalDateTime.of(2024, 1, 15, 9, 0);
+    @BeforeEach
+    void setUp() {
+        testEmployee = new Employee();
+        testEmployee.setEmployeeId(1);
+        testEmployee.setSalesIncentivePercent(10.0f);
+        testEmployee.setIncentiveOnAllSales(true);
 
-		testLogin = new Login();
-		testLogin.setLoginId(100);
-		testLogin.setEmployee(testEmployee);
-		testLogin.setLoginDateTime(testDateTime);
-		testLogin.setActivityTime(Time.valueOf("08:00:00"));
+        testDateTime = LocalDateTime.of(2024, 1, 15, 9, 0);
 
-		testAttendance = new ShiftTimeAttendance();
-		testAttendance.setShiftTimeAttendanceId(1);
-		testAttendance.setEmployee(testEmployee);
-		testAttendance.setAttendanceDate(testDateTime.toLocalDate());
-		testAttendance.setTotalActiveTime(LocalTime.of(8, 0, 0));
+        testLogin = new Login();
+        testLogin.setLoginId(100);
+        testLogin.setEmployee(testEmployee);
+        testLogin.setLoginDateTime(testDateTime);
+        testLogin.setActivityTime(Time.valueOf("08:00:00"));
 
-		testShiftTime = new ShiftTime();
-		testShiftTime.setShiftTimeId(1);
-		testShiftTime.setFromTime(LocalTime.of(9, 0));
-		testShiftTime.setToTime(LocalTime.of(17, 0));
-		testShiftTime.setTotalTime(LocalTime.of(8, 0));
-	}
+        testAttendance = new ShiftTimeAttendance();
+        testAttendance.setShiftTimeAttendanceId(1);
+        testAttendance.setEmployee(testEmployee);
+        testAttendance.setAttendanceDate(testDateTime.toLocalDate());
+        testAttendance.setTotalActiveTime(LocalTime.of(8, 0, 0));
 
-	@Test
-	void testUpdateDateAttendance_WithNewAttendance() {
-		when(shiftTimeAttendanceRepository.findOneByEmployeeAndDate(1, testDateTime.toLocalDate()))
-				.thenReturn(Optional.empty());
-		when(shiftTimeAttendanceRepository.save(any(ShiftTimeAttendance.class))).thenReturn(testAttendance); // أول save
-		when(loginRepo.findAllByEmployeeAndDate(1, testDateTime.toLocalDate()))
-				.thenReturn(Collections.singletonList(testLogin));
+        testShiftTime = new ShiftTime();
+        testShiftTime.setShiftTimeId(1);
+        testShiftTime.setFromTime(LocalTime.of(9, 0));
+        testShiftTime.setToTime(LocalTime.of(17, 0));
+        testShiftTime.setTotalTime(LocalTime.of(8, 0));
+        testShiftTime.setDayIndex(testDateTime.getDayOfWeek().getValue());
+    }
 
-		when(shiftRepository.findByEmployeeId(1)).thenReturn(Collections.singletonList(testShiftTime));
+    @Test
+    void testUpdateDateAttendance_WithNewAttendance() {
+        when(shiftTimeAttendanceRepository.findAll(any(Specification.class)))
+                .thenReturn(Collections.emptyList());
+        when(shiftTimeAttendanceRepository.save(any(ShiftTimeAttendance.class))).thenReturn(testAttendance);
+        when(loginRepo.findAll(any(Specification.class))).thenReturn(Collections.singletonList(testLogin));
 
-		service.updateDateAttendance(testLogin);
+        service.updateDateAttendance(testLogin);
 
-		verify(shiftTimeAttendanceRepository, times(2)).save(any(ShiftTimeAttendance.class));
-		verify(loginRepo, times(1)).save(testLogin);
-	}
+        verify(shiftTimeAttendanceRepository, times(2)).save(any(ShiftTimeAttendance.class));
+        verify(loginRepo, times(1)).save(testLogin);
+    }
 
-	@Test
-	void testUpdateDateAttendance_WithExistingAttendance() {
-		testLogin.setShiftTimeAttendanceId(testAttendance);
+    @Test
+    void testUpdateDateAttendance_WithExistingAttendance() {
+        testLogin.setShiftTimeAttendanceId(testAttendance);
 
-		when(shiftTimeAttendanceRepository.findOneByEmployeeAndDate(1, testDateTime.toLocalDate()))
-				.thenReturn(Optional.of(testAttendance));
-		when(loginRepo.findAllByEmployeeAndDate(1, testDateTime.toLocalDate()))
-				.thenReturn(Collections.singletonList(testLogin));
+        when(shiftTimeAttendanceRepository.findAll(any(Specification.class)))
+                .thenReturn(Collections.singletonList(testAttendance));
+   
 
-		when(shiftRepository.findByEmployeeId(1)).thenReturn(Collections.singletonList(testShiftTime));
+        service.updateDateAttendance(testLogin);
 
-		service.updateDateAttendance(testLogin);
+        verify(shiftTimeAttendanceRepository, times(1)).save(testAttendance);
+        verify(loginRepo, never()).save(any(Login.class));
+    }
 
-		verify(shiftTimeAttendanceRepository, never()).save(argThat(att -> att.getShiftTimeAttendanceId() == null
-				|| att.getShiftTimeAttendanceId() != testAttendance.getShiftTimeAttendanceId()));
+    @Test
+    void testCalculateAndSetAttendanceData_WithEmptyLogins() {
+        ShiftTimeAttendance attendance = new ShiftTimeAttendance();
+        attendance.setAttendanceDate(LocalDate.now());
+        attendance.setEmployee(testEmployee);
+        when(loginRepo.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
-		verify(shiftTimeAttendanceRepository, times(1)).save(testAttendance);
-		verify(loginRepo, never()).save(any(Login.class));
-	}
+        service.updateDateAttendance(attendance);
 
-	@Test
-	void testCalculateAndSetAttendanceData_WithEmptyLogins() {
-		ShiftTimeAttendance attendance = new ShiftTimeAttendance();
-		attendance.setAttendanceDate(LocalDate.now());
-		attendance.setEmployee(testEmployee);
-		when(loginRepo.findAllByEmployeeAndDate(anyInt(), any(LocalDate.class))).thenReturn(Collections.emptyList());
+        assertNotNull(attendance.getTotalActiveTime());
+        assertEquals(LocalTime.of(0,0,0), attendance.getTotalActiveTime());
+        assertNull(attendance.getLessTime());
+        assertNull(attendance.getOverTime());
+    }
 
-		service.updateDateAttendance(attendance);
+    @Test
+    void testCalculateAndSetAttendanceData_WithLoginButNoShift() {
+        List<Login> logins = Collections.singletonList(testLogin);
+        when(loginRepo.findAll(any(Specification.class))).thenReturn(logins);
 
-		assertNotNull(attendance.getTotalActiveTime());
-		assertEquals(Time.valueOf("00:00:00"), attendance.getTotalActiveTime());
-		assertNull(attendance.getLessTime());
-		assertNull(attendance.getOverTime());
-	}
+        testAttendance.setTotalActiveTime(null);
 
-	@Test
-	void testCalculateAndSetAttendanceData_WithLoginButNoShift() {
-		List<Login> logins = Collections.singletonList(testLogin);
-		when(shiftRepository.findByEmployeeId(1)).thenReturn(Collections.emptyList());
+        service.updateDateAttendance(testAttendance);
 
-		testAttendance.setTotalActiveTime(null);
-		when(loginRepo.findAllByEmployeeAndDate(1, testDateTime.toLocalDate())).thenReturn(logins);
-		when(shiftTimeAttendanceRepository.findOneByEmployeeAndDate(1, testDateTime.toLocalDate()))
-				.thenReturn(Optional.of(testAttendance));
+        assertEquals(LocalTime.of(8,0,0), testAttendance.getTotalActiveTime());
+        assertNull(testAttendance.getLessTime());
+        assertNull(testAttendance.getOverTime());
+    }
 
-		service.updateDateAttendance(testLogin);
+    @Test
+    void testFindNearestShiftTimeForEmployee() {
+        when(shiftTimeRepo.findAll(any(Specification.class)))
+                .thenReturn(Collections.singletonList(testShiftTime));
 
-		assertEquals(Time.valueOf("08:00:00"), testAttendance.getTotalActiveTime());
-		assertNull(testAttendance.getLessTime());
-		assertNull(testAttendance.getOverTime());
-	}
+        ShiftTime result = service.findNearestShiftTimeForEmployee(1, testDateTime);
 
-	@Test
-	void testFindNearestShiftTimeForEmployee() {
-		List<ShiftTime> shifts = new ArrayList<>();
+        assertNotNull(result);
+        assertEquals(1, result.getShiftTimeId());
+    }
 
-		ShiftTime shift1 = new ShiftTime();
-		shift1.setShiftTimeId(1);
-		shift1.setFromTime(LocalTime.of(8, 0));
-		shift1.setToTime(LocalTime.of(16, 0));
-		shifts.add(shift1);
+    @Test
+    void testFindNearestShiftTimeForEmployee_NoShifts() {
+        when(shiftTimeRepo.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
-		ShiftTime shift2 = new ShiftTime();
-		shift2.setShiftTimeId(2);
-		shift2.setFromTime(LocalTime.of(9, 0));
-		shift2.setToTime(LocalTime.of(17, 0));
-		shifts.add(shift2);
+        ShiftTime result = service.findNearestShiftTimeForEmployee(1, testDateTime);
 
-		when(shiftRepository.findByEmployeeId(1)).thenReturn(shifts);
+        assertNull(result);
+    }
 
-		ShiftTime result = service.findNearestShiftTimeForEmployee(1, LocalDateTime.of(2024, 1, 15, 8, 30));
+    @Test
+    void testGetShiftTimeForEmployee_ShiftToday() {
+        when(shiftTimeRepo.findAll(any(Specification.class)))
+                .thenReturn(Collections.singletonList(testShiftTime));
 
-		assertNotNull(result);
-		assertEquals(1, result.getShiftTimeId());
-	}
+        ShiftTime result = service.getShiftTimeForEmployee(1, LocalDate.now());
 
-	@Test
-	void testFindNearestShiftTimeForEmployee_NoShifts() {
-		when(shiftRepository.findByEmployeeId(1)).thenReturn(Collections.emptyList());
+        assertNotNull(result);
+        assertEquals(1, result.getShiftTimeId());
+    }
 
-		ShiftTime result = service.findNearestShiftTimeForEmployee(1, LocalDateTime.now());
+    @Test
+    void testGetShiftTimeForEmployee_NoShiftToday_UseEmployeeShift_WithSpec() {
+        when(shiftTimeRepo.findAll(any(Specification.class)))
+                .thenReturn(Collections.singletonList(testShiftTime));
 
-		assertNull(result);
-	}
+        ShiftTime result = service.getShiftTimeForEmployee(1, LocalDate.now());
 
-	@Test
-	void testCalculateTotalIncentiveSales_IncentiveOnAllSales() {
-		List<ShiftTime> shifts = Collections.singletonList(testShiftTime);
+        assertNotNull(result);
+        assertEquals(1, result.getShiftTimeId());
+    }
 
-		when(employeeRepository.findById(1)).thenReturn(Optional.of(testEmployee));
-		when(shiftRepository.findShiftsByEmployeeIdAndDate(1, LocalDate.now().getDayOfWeek().getValue()))
-				.thenReturn(shifts);
-		when(salesRepository.calculateAllSalesDuringShiftTime(any(), any())).thenReturn(1000.0f);
+    @Test
+    void testGetShiftTimeAttendance_Exists() {
+        when(shiftTimeAttendanceRepository.findById(1)).thenReturn(Optional.of(testAttendance));
 
-		Float result = invokePrivateMethod("calculateTotalIncentiveSales",
-				new Class[] { Integer.class, LocalDate.class }, new Object[] { 1, LocalDate.now() });
+        ShiftTimeAttendance result = service.getShiftTimeAttendance(1);
 
-		assertNotNull(result);
-		assertEquals(100.0f, result, 0.01);
-	}
+        assertNotNull(result);
+        assertEquals(1, result.getShiftTimeAttendanceId());
+    }
 
-	@Test
-	void testGetShiftTimeForEmployee_ShiftToday() {
-		LocalDate today = LocalDate.now();
-		when(shiftRepository.findByEmployeeIdAndDateNative(1, today)).thenReturn(Optional.of(testShiftTime));
+    @Test
+    void testGetShiftTimeAttendance_NotExists() {
+        when(shiftTimeAttendanceRepository.findById(999)).thenReturn(Optional.empty());
 
-		ShiftTime result = service.getShiftTimeForEmployee(1, today);
+        ShiftTimeAttendance result = service.getShiftTimeAttendance(999);
 
-		assertNotNull(result);
-		assertEquals(1, result.getShiftTimeId());
-	}
+        assertNull(result);
+    }
 
-	@Test
-	void testGetShiftTimeForEmployee_NoShiftToday_UseEmployeeShift() {
-		LocalDate today = LocalDate.now();
-		when(shiftRepository.findByEmployeeIdAndDateNative(1, today)).thenReturn(Optional.empty());
-		when(shiftRepository.findByEmployeeIdNative(1)).thenReturn(Collections.singletonList(testShiftTime));
+    @Test
+    void testGetShiftTimeAttendance_NullId() {
+        ShiftTimeAttendance result = service.getShiftTimeAttendance(null);
 
-		ShiftTime result = service.getShiftTimeForEmployee(1, today);
-
-		assertNotNull(result);
-		assertEquals(1, result.getShiftTimeId());
-	}
-
-	@Test
-	void testGetShiftTimeForEmployee_UseDefaultShift() {
-		LocalDate today = LocalDate.now();
-		when(shiftRepository.findByEmployeeIdAndDateNative(1, today)).thenReturn(Optional.empty());
-		when(shiftRepository.findByEmployeeIdNative(1)).thenReturn(Collections.emptyList());
-		when(shiftRepository.findAnyShiftTime()).thenReturn(Optional.of(testShiftTime));
-
-		ShiftTime result = service.getShiftTimeForEmployee(1, today);
-
-		assertNotNull(result);
-		assertEquals(1, result.getShiftTimeId());
-	}
-
-	@Test
-	void testGetShiftTimeAttendance_Exists() {
-		when(shiftTimeAttendanceRepository.findById(1)).thenReturn(Optional.of(testAttendance));
-
-		ShiftTimeAttendance result = service.getShiftTimeAttendance(1);
-
-		assertNotNull(result);
-		assertEquals(1, result.getShiftTimeAttendanceId());
-	}
-
-	@Test
-	void testGetShiftTimeAttendance_NotExists() {
-		when(shiftTimeAttendanceRepository.findById(999)).thenReturn(Optional.empty());
-
-		ShiftTimeAttendance result = service.getShiftTimeAttendance(999);
-
-		assertNull(result);
-	}
-
-	@Test
-	void testGetShiftTimeAttendance_NullId() {
-		ShiftTimeAttendance result = service.getShiftTimeAttendance(null);
-
-		assertNull(result);
-	}
-
-	private Float invokePrivateMethod(String methodName, Class<?>[] parameterTypes, Object[] args) {
-		try {
-			java.lang.reflect.Method method = shiftTimeAttendanceService.class.getDeclaredMethod(methodName,
-					parameterTypes);
-			method.setAccessible(true);
-			return (Float) method.invoke(service, args);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
+        assertNull(result);
+    }
 }

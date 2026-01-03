@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.lang.reflect.Field;
 import java.time.LocalTime;
@@ -162,40 +163,39 @@ class ShiftTest {
 
 	@Test
 	void testGetShiftsByCompanyId_WithCompanyId() {
-		List<Shift> shifts = Arrays.asList(shift);
-		when(shiftRepository.findByCompanyCompanyId(1)).thenReturn(shifts);
+	    List<Shift> shifts = Arrays.asList(shift);
+	    when(shiftRepository.findAll(any(Specification.class))).thenReturn(shifts);
 
-		List<Shift> result = shiftService.getShiftsByCompanyId(1);
+	    List<Shift> result = shiftService.getShiftsByCompanyId(1);
 
-		assertNotNull(result);
-		assertEquals(1, result.size());
-		assertEquals("Morning Shift", result.get(0).getShiftName());
-		verify(shiftRepository).findByCompanyCompanyId(1);
-		verify(shiftRepository, never()).findAll();
+	    assertNotNull(result);
+	    assertEquals(1, result.size());
+	    assertEquals("Morning Shift", result.get(0).getShiftName());
+	    verify(shiftRepository).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testGetShiftsByCompanyId_WithoutCompanyId() {
-		List<Shift> shifts = Arrays.asList(shift);
-		when(shiftRepository.findAll()).thenReturn(shifts);
+	    List<Shift> shifts = Arrays.asList(shift);
+	    when(shiftRepository.findAll()).thenReturn(shifts);
 
-		List<Shift> result = shiftService.getShiftsByCompanyId(null);
+	    List<Shift> result = shiftService.getShiftsByCompanyId(null);
 
-		assertNotNull(result);
-		assertEquals(1, result.size());
-		verify(shiftRepository).findAll();
-		verify(shiftRepository, never()).findByCompanyCompanyId(anyInt());
+	    assertNotNull(result);
+	    assertEquals(1, result.size());
+	    verify(shiftRepository).findAll();
+	    verify(shiftRepository, never()).findAll(any(Specification.class));
 	}
 
 	@Test
 	void testGetShiftsByCompanyId_EmptyList() {
-		when(shiftRepository.findByCompanyCompanyId(1)).thenReturn(Collections.emptyList());
+	    when(shiftRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
-		List<Shift> result = shiftService.getShiftsByCompanyId(1);
+	    List<Shift> result = shiftService.getShiftsByCompanyId(1);
 
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
-		verify(shiftRepository).findByCompanyCompanyId(1);
+	    assertNotNull(result);
+	    assertTrue(result.isEmpty());
+	    verify(shiftRepository).findAll(any(Specification.class));
 	}
 
 	// ============ UPDATE SHIFT TESTS ============
