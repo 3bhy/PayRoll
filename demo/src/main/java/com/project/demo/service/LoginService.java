@@ -60,6 +60,7 @@ public class LoginService {
 
 	// Login Process if there active login close it and open new
 	//FIX-ME shiftTimeAttendanceId dont used 
+	//FIXME-DONE
 	private Login processLogin(Integer employeeId) {
 		 Specification<Login> spec = Specification.where(LoginSpec.activeLoginsForEmployee(employeeId));
 	        List<Login> activeLogins = loginRepository.findAll(spec);
@@ -309,8 +310,6 @@ if(attendance == null){
 		YearMonth currentYearMonth = YearMonth.now();
 		int currentYear = currentYearMonth.getYear();
 		int currentMonth = currentYearMonth.getMonthValue();
-//		EmployeeSalaryService.calculateEmployeeSalary(employeeId, currentYear, currentMonth);
-//		shiftTimeAttendanceService.updateDateAttendance(loginToLogout);
 		return loginRepository.save(loginToLogout);
 	}
 
