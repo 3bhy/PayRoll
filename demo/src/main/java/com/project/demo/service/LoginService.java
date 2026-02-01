@@ -383,7 +383,6 @@ if(attendance == null){
 	    ).stream().findFirst();
 	}
 
-	// الدالة المساعدة الجديدة - إضافتها هنا
 	public Optional<Login> findActiveLoginWithinShift(Integer employeeId) {
 	    LocalTime now = LocalTime.now();
 	    DayOfWeek today = LocalDate.now().getDayOfWeek();
