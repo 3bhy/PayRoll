@@ -48,7 +48,6 @@ public class LoginController {
                         .body(Map.of("message", "Login is already locked"));
             }
             
-           
             loginService.lockLoginByEmployeeId(employeeId);
             return ResponseEntity.ok(Map.of("message", "Login locked successfully"));
         } catch (EntityNotFoundException e) {
@@ -122,7 +121,7 @@ public class LoginController {
             List<LoginModel> loginModels = logins.stream().map(loginService::convertToModel).collect(Collectors.toList());
             return ResponseEntity.ok(loginModels);
         } catch (Exception e) {
-            return ResponseEntity.ok(Collections.emptyList()); // بدل ما تضرب
+            return ResponseEntity.ok(Collections.emptyList()); 
         }
     }
 
@@ -161,20 +160,19 @@ public class LoginController {
     @PostMapping("/logout/by-employee")
     public ResponseEntity<?> logoutByEmployeeId(@RequestParam Integer employeeId) {
         try {
-        	Login activeLogin = loginRepository.findAll(LoginSpec.activeLoginsForEmployee(employeeId))
-        	        .stream()
-        	        .findFirst()
-        	        .orElseThrow(() ->
-        	            new EntityNotFoundException("No active login found for employee id: " + employeeId)
-        	        );
-
+            Login activeLogin = loginRepository.findAll(LoginSpec.activeLoginsForEmployee(employeeId))
+                    .stream()
+                    .findFirst()
+                    .orElseThrow(() ->
+                        new EntityNotFoundException("No active login found for employee id: " + employeeId)
+                    );
 
             Integer shiftAttendanceId = null;
             if (activeLogin.getShiftTimeAttendanceId() != null) {
                 shiftAttendanceId = activeLogin.getShiftTimeAttendanceId().getShiftTimeAttendanceId();
             }
 
-            Login logout = loginService.processLogout(employeeId, shiftAttendanceId);
+            Login logout = loginService.processLogout(employeeId);
             return ResponseEntity.ok(logout);
 
         } catch (EntityNotFoundException e) {
@@ -183,8 +181,6 @@ public class LoginController {
         }
     }
 
-
-
     // findActiveLoginWithinShift
     @GetMapping("/active/{employeeId}")
     public ResponseEntity<?> getActiveLogin(@PathVariable Integer employeeId) {
@@ -192,7 +188,7 @@ public class LoginController {
             Optional<Login> activeLogin = loginService.findActiveLoginWithinShift(employeeId);
             if (activeLogin.isPresent()) {
                 LoginModel loginModel = loginService.convertToModel(activeLogin.get());
-                lockLogin(employeeId); // ممكن تتركه optional
+                loginService.lockLoginByEmployeeId(employeeId);
                 return ResponseEntity.ok(loginModel);
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -218,5 +214,4 @@ public class LoginController {
                     .body(Map.of("message", "Error fetching current shift: " + e.getMessage()));
         }
     }
-
 }

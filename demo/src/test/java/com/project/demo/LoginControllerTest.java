@@ -21,6 +21,8 @@ import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.LocalDate;
+import java.time.DayOfWeek;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -82,6 +84,9 @@ class LoginControllerTest {
 
 	@Test
 	void testLockLogin_Success() {
+		LocalTime now = LocalTime.now();
+		DayOfWeek today = LocalDate.now().getDayOfWeek();
+		
 		when(loginService.findActiveLoginWithinShift(100)).thenReturn(Optional.of(login));
 
 		doNothing().when(loginService).lockLoginByEmployeeId(100);
@@ -102,6 +107,9 @@ class LoginControllerTest {
 
 	@Test
 	void testLockLogin_InvalidEmployeeId() {
+		LocalTime now = LocalTime.now();
+		DayOfWeek today = LocalDate.now().getDayOfWeek();
+		
 		when(loginService.findActiveLoginWithinShift(999)).thenReturn(Optional.empty());
 
 		ResponseEntity<?> response = loginController.lockLogin(999);
@@ -120,6 +128,9 @@ class LoginControllerTest {
 
 	@Test
 	void testLockLogin_NullEmployeeId() {
+		LocalTime now = LocalTime.now();
+		DayOfWeek today = LocalDate.now().getDayOfWeek();
+		
 		when(loginService.findActiveLoginWithinShift(null)).thenReturn(Optional.empty());
 
 		ResponseEntity<?> response = loginController.lockLogin(null);
@@ -134,6 +145,9 @@ class LoginControllerTest {
 
 	@Test
 	void testLockLogin_AlreadyLocked() {
+		LocalTime now = LocalTime.now();
+		DayOfWeek today = LocalDate.now().getDayOfWeek();
+		
 		login.setLocked(true);
 
 		when(loginService.findActiveLoginWithinShift(100)).thenReturn(Optional.of(login));
@@ -459,8 +473,7 @@ class LoginControllerTest {
 	    void testLogoutByEmployeeId_Success() {
 	        List<Login> activeLogins = Collections.singletonList(login);
 	        when(loginRepository.findAll(any(Specification.class))).thenReturn(activeLogins);
-	        when(loginService.processLogout(eq(100), eq(1))).thenReturn(login);
-
+	        when(loginService.processLogout(eq(100))).thenReturn(login);
 	        ResponseEntity<?> response = loginController.logoutByEmployeeId(100);
 
 	        assertNotNull(response);
@@ -472,7 +485,7 @@ class LoginControllerTest {
 	        assertEquals(1, result.getLoginId());
 
 	        verify(loginRepository, times(1)).findAll(any(Specification.class));
-	        verify(loginService, times(1)).processLogout(eq(100), eq(1));
+	        verify(loginService, times(1)).processLogout(eq(100));
 	    }
 
 	    @Test
@@ -490,7 +503,7 @@ class LoginControllerTest {
 	        assertTrue(body.get("message").contains("No active login found"));
 
 	        verify(loginRepository, times(1)).findAll(any(Specification.class));
-	        verify(loginService, never()).processLogout(anyInt(), anyInt());
+	        verify(loginService, never()).processLogout(anyInt());
 	    }
 
 	    @Test
@@ -499,8 +512,7 @@ class LoginControllerTest {
 	        List<Login> activeLogins = Collections.singletonList(login);
 
 	        when(loginRepository.findAll(any(Specification.class))).thenReturn(activeLogins);
-	        when(loginService.processLogout(eq(100), isNull())).thenReturn(login);
-
+	        when(loginService.processLogout(eq(100))).thenReturn(login);
 	        ResponseEntity<?> response = loginController.logoutByEmployeeId(100);
 
 	        assertNotNull(response);
@@ -511,7 +523,7 @@ class LoginControllerTest {
 	        assertNotNull(result);
 
 	        verify(loginRepository, times(1)).findAll(any(Specification.class));
-	        verify(loginService, times(1)).processLogout(eq(100), isNull());
+	        verify(loginService, times(1)).processLogout(eq(100));
 	    }
 	
 
@@ -519,6 +531,9 @@ class LoginControllerTest {
 
 	@Test
 	void testGetActiveLogin_Success() {
+		LocalTime now = LocalTime.now();
+		DayOfWeek today = LocalDate.now().getDayOfWeek();
+		
 		when(loginService.findActiveLoginWithinShift(100)).thenReturn(Optional.of(login));
 		when(loginService.convertToModel(any(Login.class))).thenReturn(loginModel);
 		doNothing().when(loginService).lockLoginByEmployeeId(100);
@@ -532,13 +547,16 @@ class LoginControllerTest {
 		LoginModel result = (LoginModel) response.getBody();
 		assertEquals(1, result.getLoginId());
 
-		verify(loginService, times(2)).findActiveLoginWithinShift(100);
+		verify(loginService, times(1)).findActiveLoginWithinShift(100);
 		verify(loginService, times(1)).convertToModel(any(Login.class));
 		verify(loginService, times(1)).lockLoginByEmployeeId(100);
 	}
 
 	@Test
 	void testGetActiveLogin_NotFound() {
+		LocalTime now = LocalTime.now();
+		DayOfWeek today = LocalDate.now().getDayOfWeek();
+		
 		when(loginService.findActiveLoginWithinShift(999)).thenReturn(Optional.empty());
 
 		ResponseEntity<?> response = loginController.getActiveLogin(999);
@@ -558,6 +576,9 @@ class LoginControllerTest {
 
 	@Test
 	void testGetActiveLogin_ServiceThrowsException() {
+		LocalTime now = LocalTime.now();
+		DayOfWeek today = LocalDate.now().getDayOfWeek();
+		
 		when(loginService.findActiveLoginWithinShift(100)).thenThrow(new RuntimeException("Database error"));
 
 		ResponseEntity<?> response = loginController.getActiveLogin(100);

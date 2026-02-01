@@ -16,11 +16,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.sql.Time;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.LocalDate;
+import java.time.DayOfWeek;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -103,20 +108,18 @@ class LoginTest {
 		loginModel = new LoginModel();
 		loginModel.setEmployeeId(1);
 		loginModel.setShiftTimeAttendanceId(1);
-
-		lenient().when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
-		lenient().when(employeeService.getEmployeeById(1)).thenReturn(employee);
 	}
-
-	// ==================== createLoginIfWasActiveLogin Tests ====================
 
 	@Test
 	void testCreateLoginIfWasActiveLogin() {
+		when(employeeService.getEmployeeById(1)).thenReturn(employee);
+		
 		when(shiftTimeAttendanceService.findNearestShiftTimeForEmployee(anyInt(), any(LocalDateTime.class)))
 				.thenReturn(shiftTime);
 
-		when(shiftTimeAttendanceRepository.findAll(any(Specification.class)))
-				.thenReturn(Collections.singletonList(shiftTimeAttendance));
+		Page<ShiftTimeAttendance> page = new PageImpl<>(Collections.singletonList(shiftTimeAttendance));
+		when(shiftTimeAttendanceRepository.findAll(any(Specification.class), eq(PageRequest.of(0, 1))))
+				.thenReturn(page);
 
 		when(loginRepository.save(any(Login.class))).thenReturn(login);
 
@@ -124,6 +127,7 @@ class LoginTest {
 
 		assertNotNull(result);
 		verify(loginRepository).save(any(Login.class));
+		verify(employeeService).getEmployeeById(1);
 	}
 
 	@Test
@@ -141,13 +145,17 @@ class LoginTest {
 	void testCreateLoginIfWasActiveLogin_WithNullShiftTimeAttendanceId() {
 		loginModel.setShiftTimeAttendanceId(null);
 
+		when(employeeService.getEmployeeById(1)).thenReturn(employee);
 		when(shiftTimeAttendanceService.findNearestShiftTimeForEmployee(anyInt(), any(LocalDateTime.class)))
 				.thenReturn(null);
 
-		when(shiftTimeAttendanceRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
+		Page<ShiftTimeAttendance> emptyPage = new PageImpl<>(Collections.emptyList());
+		when(shiftTimeAttendanceRepository.findAll(any(Specification.class), eq(PageRequest.of(0, 1))))
+				.thenReturn(emptyPage);
 
 		ShiftTimeAttendance newAttendance = new ShiftTimeAttendance();
 		newAttendance.setShiftTimeAttendanceId(1);
+		when(employeeRepository.findById(1)).thenReturn(Optional.of(employee));
 		when(shiftTimeAttendanceRepository.save(any(ShiftTimeAttendance.class))).thenReturn(newAttendance);
 
 		when(loginRepository.save(any(Login.class))).thenReturn(login);
@@ -156,9 +164,9 @@ class LoginTest {
 
 		assertNotNull(result);
 		verify(loginRepository).save(any(Login.class));
+		verify(employeeService).getEmployeeById(1);
+		verify(employeeRepository).findById(1);
 	}
-
-	// ==================== lockLogin Tests ====================
 
 	@Test
 	void testLockLogin() {
@@ -214,8 +222,6 @@ class LoginTest {
 		assertTrue(activeLogin.getLocked());
 		verify(loginRepository).save(activeLogin);
 	}
-
-	// ==================== calculateAndSetActivityTime Tests ====================
 
 	@Test
 	void testCalculateAndSetActivityTime_ValidTimes() {
@@ -277,8 +283,6 @@ class LoginTest {
 		assertNotNull(result);
 	}
 
-	// ==================== lockLoginByEmployeeId Tests ====================
-
 	@Test
 	void testLockLoginByEmployeeId() {
 		Login activeLogin = new Login();
@@ -326,8 +330,6 @@ class LoginTest {
 		verify(loginRepository, times(1)).findAll(any(Specification.class));
 	}
 
-	// ==================== getLoginById Tests ====================
-
 	@Test
 	void testGetLoginById() {
 		when(loginRepository.findById(1)).thenReturn(Optional.of(login));
@@ -359,8 +361,6 @@ class LoginTest {
 		verify(loginRepository).findById(null);
 	}
 
-	// ==================== deleteLogin Tests ====================
-
 	@Test
 	void testDeleteLogin() {
 		when(loginRepository.findById(1)).thenReturn(Optional.of(login));
@@ -381,8 +381,6 @@ class LoginTest {
 		verify(loginRepository).findById(999);
 		verify(loginRepository, never()).delete(any(Login.class));
 	}
-
-	// ==================== getLoginsByFilters Tests ====================
 
 	@Test
 	void testGetLoginsByFilters_EmployeeIdOnly() {
@@ -475,26 +473,25 @@ class LoginTest {
 		verify(loginRepository).findAll(any(Specification.class));
 	}
 
-	// ==================== processLogout Tests ====================
-
 	@Test
 	void testProcessLogout_NoActiveLogin_CreatesNew_WithSpec() {
 		when(loginRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 
+		when(employeeService.getEmployeeById(1)).thenReturn(employee);
 		when(shiftTimeAttendanceService.findNearestShiftTimeForEmployee(anyInt(), any(LocalDateTime.class)))
 				.thenReturn(shiftTime);
 
-		when(shiftTimeAttendanceRepository.findAll(any(Specification.class)))
-				.thenReturn(Collections.singletonList(shiftTimeAttendance));
+		Page<ShiftTimeAttendance> page = new PageImpl<>(Collections.singletonList(shiftTimeAttendance));
+		when(shiftTimeAttendanceRepository.findAll(any(Specification.class), eq(PageRequest.of(0, 1))))
+				.thenReturn(page);
 
 		when(loginRepository.save(any(Login.class))).thenReturn(login);
 
-		Login result = loginService.processLogout(1, 1);
+		Login result = loginService.processLogout(1);
 
 		assertNotNull(result);
 		verify(loginRepository).save(any(Login.class));
 		verify(loginRepository, atLeastOnce()).findAll(any(Specification.class));
-
 	}
 
 	@Test
@@ -509,15 +506,13 @@ class LoginTest {
 
 		when(loginRepository.save(any(Login.class))).thenReturn(activeLogin);
 
-		Login result = loginService.processLogout(1, 1);
+		Login result = loginService.processLogout(1);
 
 		assertNotNull(result);
 		assertTrue(result.getLogoutStatus());
 		verify(loginRepository, atLeastOnce()).findAll(any(Specification.class));
 		verify(loginRepository, times(2)).save(any(Login.class));
 	}
-
-	// ==================== logoutByLoginId Tests ====================
 
 	@Test
 	void testLogoutByLoginId() {
@@ -551,8 +546,6 @@ class LoginTest {
 		verify(loginRepository, never()).save(any(Login.class));
 	}
 
-	// ==================== getOpenLogins Tests ====================
-
 	@Test
 	void testGetOpenLogins() {
 		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
@@ -574,9 +567,6 @@ class LoginTest {
 		assertTrue(result.isEmpty());
 		verify(loginRepository).findAll(any(Specification.class));
 	}
-
-	// ==================== getCurrentShiftTimeForEmployee Tests
-	// ====================
 
 	@Test
 	void testGetCurrentShiftTimeForEmployee_Found_WithSpec() {
@@ -600,30 +590,38 @@ class LoginTest {
 		verify(shiftTimeRepo).findAll(any(Specification.class));
 	}
 
-	// ==================== findActiveLoginWithinShift Tests ====================
-
 	@Test
 	void testFindActiveLoginWithinShift() {
-		when(loginRepository.findAll(any(Specification.class))).thenReturn(Arrays.asList(login));
+		Integer employeeId = 1;
+		LocalTime now = LocalTime.now();
+		DayOfWeek today = LocalDate.now().getDayOfWeek();
+		
+		Page<Login> page = new PageImpl<>(Arrays.asList(login));
+		when(loginRepository.findAll(any(Specification.class), eq(PageRequest.of(0, 1))))
+				.thenReturn(page);
 
-		Optional<Login> result = loginService.findActiveLoginWithinShift(1);
+		Optional<Login> result = loginService.findFirstActiveLoginWithinShift(employeeId, now, today);
 
 		assertTrue(result.isPresent());
 		assertEquals(1, result.get().getLoginId());
-		verify(loginRepository).findAll(any(Specification.class));
+		verify(loginRepository).findAll(any(Specification.class), eq(PageRequest.of(0, 1)));
 	}
 
 	@Test
 	void testFindActiveLoginWithinShift_NotFound() {
-		when(loginRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
+		Integer employeeId = 999;
+		LocalTime now = LocalTime.now();
+		DayOfWeek today = LocalDate.now().getDayOfWeek();
+		
+		Page<Login> emptyPage = new PageImpl<>(Collections.emptyList());
+		when(loginRepository.findAll(any(Specification.class), eq(PageRequest.of(0, 1))))
+				.thenReturn(emptyPage);
 
-		Optional<Login> result = loginService.findActiveLoginWithinShift(999);
+		Optional<Login> result = loginService.findFirstActiveLoginWithinShift(employeeId, now, today);
 
 		assertFalse(result.isPresent());
-		verify(loginRepository).findAll(any(Specification.class));
+		verify(loginRepository).findAll(any(Specification.class), eq(PageRequest.of(0, 1)));
 	}
-
-	// ==================== getTodayAttendance Tests ====================
 
 	@Test
 	void testGetTodayAttendance_Found() {
@@ -656,8 +654,10 @@ class LoginTest {
 		when(shiftTimeAttendanceRepository.findAll(any(Specification.class))).thenReturn(Collections.emptyList());
 		when(employeeRepository.findById(999)).thenReturn(Optional.empty());
 
-		assertThrows(RuntimeException.class, () -> loginService.getTodayAttendance(999));
+		RuntimeException exception = assertThrows(RuntimeException.class,
+				() -> loginService.getTodayAttendance(999));
 
+		assertEquals("Employee not found with id: 999", exception.getMessage());
 		verify(shiftTimeAttendanceRepository).findAll(any(Specification.class));
 		verify(employeeRepository).findById(999);
 		verify(shiftTimeAttendanceRepository, never()).save(any(ShiftTimeAttendance.class));

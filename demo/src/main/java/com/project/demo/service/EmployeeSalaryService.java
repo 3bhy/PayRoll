@@ -349,7 +349,7 @@ public class EmployeeSalaryService {
 	}
 
 //Calculate Incentive instesd of shift and attendance and incentive on all sales
-	private Float calculateMonthlyIncentive(Integer employeeId, Integer year, Integer month) {
+	Float calculateMonthlyIncentive(Integer employeeId, Integer year, Integer month) {
 		Float totalMonthlyIncentive = 0.0f;
 
 		LocalDate startDate = LocalDate.of(year, month, 1);

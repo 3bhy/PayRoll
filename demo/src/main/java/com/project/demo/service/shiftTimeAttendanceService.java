@@ -25,12 +25,15 @@ import com.project.demo.repo.LoginRepo;
 import com.project.demo.repo.SalesRepo;
 import com.project.demo.repo.ShiftTimeRepo;
 import com.project.demo.repo.shiftTimeAttendanceRepo;
+import com.project.demo.scheduler.SalaryCalculationService;
 import com.project.demo.specification.LoginSpec;
 import com.project.demo.specification.ShiftTimeAttendanceSpec;
 import com.project.demo.specification.ShiftTimeSpec;
 
 @Service
 public class shiftTimeAttendanceService {
+
+    private final SalaryCalculationService salaryCalculationService;
 
 	@Autowired
 	private shiftTimeAttendanceRepo shiftTimeAttendanceRepository;
@@ -50,6 +53,10 @@ public class shiftTimeAttendanceService {
 	private SalesRepo salesRepository;
 	@Autowired
 	private LoginRepo loginRepo;
+
+    public shiftTimeAttendanceService(SalaryCalculationService salaryCalculationService) {
+        this.salaryCalculationService = salaryCalculationService;
+    }
 
 	// If attendance doesn't exist, create a new one and save it
 	// FIXME may be there is another attendance for the date of the login but not
@@ -115,82 +122,146 @@ public class shiftTimeAttendanceService {
 	// any shift ? comment to me
 
 	private void recalculateAttendanceForMultipleShifts(ShiftTimeAttendance attendance, List<Login> allLogins) {
-		if (allLogins == null || allLogins.isEmpty()) {
-			attendance.setTotalActiveTime(LocalTime.of(0, 0, 0));
-			attendance.setLessTime(null);
-			attendance.setOverTime(null);
-			attendance.setTotalOverTime(LocalTime.of(0, 0, 0));
-			return;
-		}
+	    if (allLogins == null || allLogins.isEmpty()) {
+	        attendance.setTotalActiveTime(LocalTime.of(0, 0, 0));
+	        attendance.setLessTime(null);
+	        attendance.setOverTime(null);
+	        attendance.setTotalOverTime(LocalTime.of(0, 0, 0));
+	        return;
+	    }
 
-		// FIXME here you get the shift from the login then get its Id
-		// and below at 203 you re-fetch the shift using the ID !!!
-		// i reviewed it
-		Map<Integer, List<Login>> loginsByShift = new HashMap<>();
-		for (Login login : allLogins) {
-			if (login.getShiftTimeId() != null) {
-				Integer shiftTimeId = login.getShiftTimeId().getShiftTimeId();
-				loginsByShift.computeIfAbsent(shiftTimeId, k -> new ArrayList<>()).add(login);
-			}
-		}
+	    // FIXME here you get the shift from the login then get its Id
+	    // and below at 203 you re-fetch the shift using the ID !!!
+	    // i reviewed it
+	    Map<Integer, List<Login>> loginsByShift = new HashMap<>();
+	    for (Login login : allLogins) {
+	        if (login.getShiftTimeId() != null) {
+	            Integer shiftTimeId = login.getShiftTimeId().getShiftTimeId();
+	            loginsByShift.computeIfAbsent(shiftTimeId, k -> new ArrayList<>()).add(login);
+	        }
+	    }
 
-		if (loginsByShift.isEmpty()) {
-			calculateSimpleAttendance(attendance, allLogins);
-			return;
-		}
+	    if (loginsByShift.isEmpty()) {
+	        calculateSimpleAttendance(attendance, allLogins);
+	        return;
+	    }
 
-		Duration totalWorkedAllShifts = Duration.ZERO;
-		Duration totalRequiredAllShifts = Duration.ZERO;
-		Duration totalLessTime = Duration.ZERO;
-		Duration totalOverTime = Duration.ZERO;
+	    Duration totalWorkedAllShifts = Duration.ZERO;   
+	    Duration totalRequiredAllShifts = Duration.ZERO;
+	    Duration totalLessTime = Duration.ZERO;          
+	    Duration totalOverTime = Duration.ZERO;          
 
-		for (Map.Entry<Integer, List<Login>> entry : loginsByShift.entrySet()) {
-			List<Login> shiftLogins = entry.getValue();
+	    for (Map.Entry<Integer, List<Login>> entry : loginsByShift.entrySet()) {
+	        List<Login> shiftLogins = entry.getValue();
 
-			Duration shiftWorked = Duration.ZERO;
-			ShiftTime shiftTime = null;
+	        Duration shiftWorked = Duration.ZERO;
+	        ShiftTime shiftTime = null;
 
-			for (Login login : shiftLogins) {
-				if (login.getActivityTime() != null) {
-					shiftWorked = shiftWorked.plusSeconds(login.getActivityTime().toLocalTime().toSecondOfDay());
-				}
-				if (shiftTime == null) {
-					shiftTime = login.getShiftTimeId();
-				}
-			}
+	        for (Login login : shiftLogins) {
+	            if (login.getActivityTime() != null) {
+	                shiftWorked = shiftWorked.plusSeconds(
+	                        login.getActivityTime().toLocalTime().toSecondOfDay()
+	                );
+	            }
+	            if (shiftTime == null) {
+	                shiftTime = login.getShiftTimeId();
+	            }
+	        }
 
-			totalWorkedAllShifts = totalWorkedAllShifts.plus(shiftWorked);
+	        totalWorkedAllShifts = totalWorkedAllShifts.plus(shiftWorked);
 
-			if (shiftTime != null && shiftTime.getTotalTime() != null) {
-				Duration shiftRequired = Duration.ofSeconds(shiftTime.getTotalTime().toSecondOfDay());
-				totalRequiredAllShifts = totalRequiredAllShifts.plus(shiftRequired);
+	        // FIX-ME CHeck logic for less time and over
+	        if (shiftTime != null
+	                && shiftTime.getFromTime() != null
+	                && shiftTime.getToTime() != null) {
 
-				Duration diff = shiftWorked.minus(shiftRequired);
-				if (diff.isNegative()) {
-					totalLessTime = totalLessTime.plus(diff.abs());
-				} else if (!diff.isZero()) {
-					totalOverTime = totalOverTime.plus(diff);
-				}
-			}
-		}
+	            LocalTime from = shiftTime.getFromTime();
+	            LocalTime to = shiftTime.getToTime();
 
-		attendance.setTotalActiveTime(LocalTime.ofSecondOfDay(totalWorkedAllShifts.getSeconds()));
-		employeeSalaryService.calculateEmployeeSalary(attendance.getEmployee().getEmployeeId(),
-				attendance.getAttendanceDate().getYear(), attendance.getAttendanceDate().getMonthValue());
+	            LocalTime firstLogin = null;
+	            LocalTime lastLogout = null;
+	            Duration workedInsideShift = Duration.ZERO;
 
-		if (!totalLessTime.isZero()) {
-			attendance.setLessTime(LocalTime.ofSecondOfDay(totalLessTime.getSeconds()));
-		} else {
-			attendance.setLessTime(null);
-		}
+	            for (Login login : shiftLogins) {
+	                if (login.getLoginDateTime() != null && login.getLogoutDateTime() != null) {
 
-		if (!totalOverTime.isZero()) {
-			attendance.setOverTime(LocalTime.ofSecondOfDay(totalOverTime.getSeconds()));
-			attendance.setTotalOverTime(LocalTime.ofSecondOfDay(totalOverTime.getSeconds()));
-		} else {
-			attendance.setOverTime(null);
-			attendance.setTotalOverTime(LocalTime.of(0, 0, 0));
-		}
+	                    LocalTime loginTime = login.getLoginDateTime().toLocalTime();
+	                    LocalTime logoutTime = login.getLogoutDateTime().toLocalTime();
+
+	                    if (firstLogin == null || loginTime.isBefore(firstLogin)) {
+	                        firstLogin = loginTime;
+	                    }
+	                    if (lastLogout == null || logoutTime.isAfter(lastLogout)) {
+	                        lastLogout = logoutTime;
+	                    }
+
+	                    // calculate overlap inside shift
+	                    LocalTime start = loginTime.isBefore(from) ? from : loginTime;
+	                    LocalTime end = logoutTime.isAfter(to) ? to : logoutTime;
+
+	                    if (end.isAfter(start)) {
+	                        workedInsideShift = workedInsideShift.plus(
+	                                Duration.between(start, end)
+	                        );
+	                    }
+	                }
+	            }
+
+	            Duration shiftRequired = Duration.between(from, to);
+	            totalRequiredAllShifts = totalRequiredAllShifts.plus(shiftRequired);
+
+	            if (firstLogin != null && firstLogin.isAfter(from)) {
+	                totalLessTime = totalLessTime.plus(
+	                        Duration.between(from, firstLogin)
+	                );
+	            }
+
+	            if (workedInsideShift.compareTo(shiftRequired) < 0) {
+	                totalLessTime = totalLessTime.plus(
+	                        shiftRequired.minus(workedInsideShift)
+	                );
+	            }
+
+	            if (lastLogout != null && lastLogout.isAfter(to)) {
+	                totalOverTime = totalOverTime.plus(
+	                        Duration.between(to, lastLogout)
+	                );
+	            }
+	        }
+	    }
+
+	    attendance.setTotalActiveTime(
+	            LocalTime.ofSecondOfDay(totalWorkedAllShifts.getSeconds())
+	    );
+
+	//  employeeSalaryService.calculateEmployeeSalary(attendance.getEmployee().getEmployeeId(),
+//	          attendance.getAttendanceDate().getYear(), attendance.getAttendanceDate().getMonthValue());
+
+	    if (!totalLessTime.isZero()) {
+	        attendance.setLessTime(
+	                LocalTime.ofSecondOfDay(totalLessTime.getSeconds())
+	        );
+	    } else {
+	        attendance.setLessTime(null);
+	    }
+
+	    Duration netOverTime = totalOverTime.minus(totalLessTime);
+	    if (netOverTime.isNegative()) {
+	        netOverTime = Duration.ZERO;
+	    }
+
+	    if (!netOverTime.isZero()) {
+	        attendance.setOverTime(
+	                LocalTime.ofSecondOfDay(netOverTime.getSeconds())
+	        );
+	        attendance.setTotalOverTime(
+	                LocalTime.ofSecondOfDay(netOverTime.getSeconds())
+	        );
+	    } else {
+	        attendance.setOverTime(null);
+	        attendance.setTotalOverTime(LocalTime.of(0, 0, 0));
+	    }
+	    
 	}
 
 	private void calculateSimpleAttendance(ShiftTimeAttendance attendance, List<Login> logins) {
@@ -213,8 +284,8 @@ public class shiftTimeAttendanceService {
 		}
 
 		attendance.setTotalActiveTime(LocalTime.ofSecondOfDay(totalWorked.getSeconds()));
-		employeeSalaryService.calculateEmployeeSalary(attendance.getEmployee().getEmployeeId(),
-				attendance.getAttendanceDate().getYear(), attendance.getAttendanceDate().getMonthValue());
+//		employeeSalaryService.calculateEmployeeSalary(attendance.getEmployee().getEmployeeId(),
+//				attendance.getAttendanceDate().getYear(), attendance.getAttendanceDate().getMonthValue());
 
 		attendance.setLessTime(null);
 		attendance.setOverTime(null);
@@ -223,8 +294,9 @@ public class shiftTimeAttendanceService {
 	// Find the nearest shift time for employee based on login time
 	public ShiftTime findNearestShiftTimeForEmployee(Integer employeeId, LocalDateTime loginTime) {
 		try {
-			
-			List<ShiftTime> shifts = shiftTimeRepo.findAll(ShiftTimeSpec.forEmployeeAndDay(employeeId,loginTime.getDayOfWeek().getValue()));
+
+			List<ShiftTime> shifts = shiftTimeRepo
+					.findAll(ShiftTimeSpec.forEmployeeAndDay(employeeId, loginTime.getDayOfWeek().getValue()));
 
 			if (shifts.isEmpty()) {
 				return null;
@@ -270,9 +342,8 @@ public class shiftTimeAttendanceService {
 				return 0.0f;
 			}
 
-			Optional<ShiftTimeAttendance> attendances =
-				    shiftTimeAttendanceRepository.findAll(ShiftTimeAttendanceSpec.byEmployeeAndDate(employeeId, date))
-				                                 .stream().findFirst();
+			Optional<ShiftTimeAttendance> attendances = shiftTimeAttendanceRepository
+					.findAll(ShiftTimeAttendanceSpec.byEmployeeAndDate(employeeId, date)).stream().findFirst();
 
 			if (attendances.isEmpty()) {
 				return 0.0f;
@@ -495,17 +566,15 @@ public class shiftTimeAttendanceService {
 
 	public ShiftTime getShiftTimeForEmployee(Integer employeeId, LocalDate date) {
 		try {
-			Optional<ShiftTime> shiftToday = shiftTimeRepo.findAll(
-			        ShiftTimeSpec.forEmployeeAndDate(employeeId, date)
-			).stream().findFirst();
+			Optional<ShiftTime> shiftToday = shiftTimeRepo.findAll(ShiftTimeSpec.forEmployeeAndDate(employeeId, date))
+					.stream().findFirst();
 
 			if (shiftToday.isPresent()) {
 				return shiftToday.get();
 			}
 
-			List<ShiftTime> employeeShifts = shiftTimeRepo.findAll(
-				    ShiftTimeSpec.forEmployeeActiveShifts(employeeId, LocalDate.now())
-				);
+			List<ShiftTime> employeeShifts = shiftTimeRepo
+					.findAll(ShiftTimeSpec.forEmployeeActiveShifts(employeeId, LocalDate.now()));
 
 			if (!employeeShifts.isEmpty()) {
 				return employeeShifts.get(0);
@@ -535,7 +604,7 @@ public class shiftTimeAttendanceService {
 		List<Login> logins = loginRepo.findAll(LoginSpec.byEmployeeAndDate(employeeId, attendanceDate));
 
 		recalculateAttendanceForMultipleShifts(attendance, logins);
-
+		employeeSalaryService.calculateMonthlyIncentive(employeeId,attendanceDate.getYear(),attendanceDate.getMonth().getValue());
 		shiftTimeAttendanceRepository.save(attendance);
 	}
 
@@ -550,9 +619,8 @@ public class shiftTimeAttendanceService {
 	}
 
 	public Optional<ShiftTimeAttendance> findAllByEmployeeAndDate(Integer employeeId, LocalDate date) {
-	    return shiftTimeAttendanceRepository.findAll(
-	            ShiftTimeAttendanceSpec.byEmployeeAndDate(employeeId, date)
-	    ).stream().findFirst();
+		return shiftTimeAttendanceRepository.findAll(ShiftTimeAttendanceSpec.byEmployeeAndDate(employeeId, date))
+				.stream().findFirst();
 	}
 
 }

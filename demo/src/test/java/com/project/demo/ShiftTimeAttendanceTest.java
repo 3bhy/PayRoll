@@ -5,6 +5,7 @@ import com.project.demo.repo.*;
 import com.project.demo.service.EmployeeSalaryService;
 import com.project.demo.service.LoginService;
 import com.project.demo.service.shiftTimeAttendanceService;
+import com.project.demo.scheduler.SalaryCalculationService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,7 +47,12 @@ public class ShiftTimeAttendanceTest {
     @Mock
     private LoginRepo loginRepo;
 
-    @InjectMocks
+    @Mock
+    private SalaryCalculationService salaryCalculationService;
+
+    @Mock
+    private ShiftTimeRepo shiftRepository;
+
     private shiftTimeAttendanceService service;
 
     private Employee testEmployee;
@@ -54,6 +60,7 @@ public class ShiftTimeAttendanceTest {
     private ShiftTimeAttendance testAttendance;
     private ShiftTime testShiftTime;
     private LocalDateTime testDateTime;
+    private ShiftTime dummyShiftTime;
 
     @BeforeEach
     void setUp() {
@@ -82,6 +89,35 @@ public class ShiftTimeAttendanceTest {
         testShiftTime.setToTime(LocalTime.of(17, 0));
         testShiftTime.setTotalTime(LocalTime.of(8, 0));
         testShiftTime.setDayIndex(testDateTime.getDayOfWeek().getValue());
+
+        dummyShiftTime = new ShiftTime();
+        dummyShiftTime.setShiftTimeId(-1);
+        dummyShiftTime.setFromTime(LocalTime.of(0, 0));
+        dummyShiftTime.setToTime(LocalTime.of(23, 59, 59));
+        dummyShiftTime.setTotalTime(LocalTime.of(23, 59, 59));
+
+        // إنشاء service باستخدام constructor
+        service = new shiftTimeAttendanceService(salaryCalculationService);
+        
+        // تعيين حقول service باستخدام reflection
+        setField(service, "shiftTimeAttendanceRepository", shiftTimeAttendanceRepository);
+        setField(service, "shiftRepository", shiftRepository);
+        setField(service, "loginService", loginService);
+        setField(service, "shiftTimeRepo", shiftTimeRepo);
+        setField(service, "employeeRepository", employeeRepository);
+        setField(service, "employeeSalaryService", employeeSalaryService);
+        setField(service, "salesRepository", salesRepository);
+        setField(service, "loginRepo", loginRepo);
+    }
+
+    private void setField(Object target, String fieldName, Object value) {
+        try {
+            var field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to set field " + fieldName, e);
+        }
     }
 
     @Test
@@ -103,7 +139,6 @@ public class ShiftTimeAttendanceTest {
 
         when(shiftTimeAttendanceRepository.findAll(any(Specification.class)))
                 .thenReturn(Collections.singletonList(testAttendance));
-   
 
         service.updateDateAttendance(testLogin);
 
