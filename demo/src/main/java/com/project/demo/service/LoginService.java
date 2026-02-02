@@ -398,7 +398,7 @@ if(attendance == null){
 		if (attendance.isPresent()) {
 			return attendance.get();
 		} else {
-			// New attendance
+			// New attendance record
 			return CreateNewAttendance(employeeId);
 
 		}
